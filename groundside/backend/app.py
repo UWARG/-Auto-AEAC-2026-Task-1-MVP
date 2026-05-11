@@ -42,7 +42,7 @@ CROSSHAIR_SIZE = 8  # half-length of each crosshair arm in pixels
 # =========================
 
 # IP and port of the transmitter (Raspberry Pi on the drone)
-TRANSMITTER_HOST = "192.168.232.15"
+TRANSMITTER_HOST = "100.97.216.91"
 TRANSMITTER_PORT = 5000
 
 SOCKET_TIMEOUT = 10.0  # seconds
@@ -650,12 +650,11 @@ def save_by_id():
         return jsonify({"message":f"{e}"}),400
     return jsonify({"message":f"successfully saved {description}"}),200
 
-@app.route("/api/delete_by_id",methods=["DELETE"])
-def delete_by_id():
+@app.route("/api/captures/<pk>",methods=["DELETE"])
+def delete_by_id(pk):
     db=load_db()
     try:
-        payload=request.get_json(silent=True) or {}
-        pk=str(payload.get("pk","")).strip()
+        pk=str(pk).strip()
         popped=db["captures"].pop(pk)
     except Exception as e:
         return jsonify({"message":f"invalid pk"}),400

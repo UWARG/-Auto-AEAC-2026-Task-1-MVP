@@ -27,7 +27,7 @@ export function CaptureHistory({ captures, selectedId, onSelect, isLoading, sele
             ) : captures.length === 0 ? (
               <p className="text-sm text-zinc-400 px-2 py-2">No captures yet.</p>
             ) : (
-              captures.map((capture) => (
+              selectedId ? captures.map((capture) => (
                 <div
                   key={capture.id}
                   onClick={() => onSelect(capture.id)}
@@ -112,7 +112,7 @@ export function CaptureHistory({ captures, selectedId, onSelect, isLoading, sele
                     </button>
                   </div>
                 </div>
-              ))
+              )) : null
             )}
           </div>
         </div>

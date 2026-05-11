@@ -46,7 +46,7 @@ function App() {
   }, [popup]);
 
   const selectedCapture =
-    captures.find((c) => c.id === selectedId) ?? captures[0] ?? null;
+    selectedId ? captures.find((c) => c.id === selectedId) ?? null : null;
 
   const direction =
     savedAnnotation?.imageType === "forward" ? "F"
@@ -93,10 +93,10 @@ function App() {
     setOutputPending(false);
     setImagePair(null);
     try {
-      const res = await fetch("/api/images/capture", { method: "POST" });
+      const res = await fetch("/api/capture_image", { method: "POST" });
       if (!res.ok) throw new Error("Failed to capture images");
       const data = await res.json();
-      setImagePair({ forwardUrl: data.forward_url, downwardUrl: data.downward_url });
+      setImagePair({ forwardUrl: `data:image/jpeg;base64,${data.oakd_image}`, downwardUrl: `data:image/jpeg;base64,${data.arducam_image}`});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to capture images");
       setImagePair({ forwardUrl: "/warg.jpg", downwardUrl: "/warg.jpg" });
@@ -284,7 +284,6 @@ function App() {
           outputPending={outputPending}
           setOutputPending={setOutputPending}
           onSubmit={() => void handleSubmit()}
-          isSubmitting={isSubmitting}
           output={output}
           colourRef={colourRef}
           referenceRef={referenceRef}
