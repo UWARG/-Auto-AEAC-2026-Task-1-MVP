@@ -350,23 +350,38 @@ class Arducam:
             if self.last_frame is None:
                 return b""
             frame=self.last_frame.copy()
+        # USB drivers often ignore CAP_PROP size; resize so JPEG matches OAK preview (FRAME_*).
+        if frame.shape[1] != self.width or frame.shape[0] != self.height:
+            interp = (
+                cv2.INTER_AREA
+                if frame.shape[1] > self.width or frame.shape[0] > self.height
+                else cv2.INTER_LINEAR
+            )
+            frame = cv2.resize(
+                frame, (self.width, self.height), interpolation=interp
+            )
         result,jpeg=cv2.imencode(".jpg",frame,[int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY])
         if not result:
             return b""
         return jpeg.tobytes()
 
-def handle_client(conn, addr, camera: OakCamera,camera2:Arducam, telemetry_state: TelemetryState):
+def handle_client(conn, addr, downward_range,center_depth_m, pitch, roll, camera: OakCamera,camera2:Arducam, telemetry_state: TelemetryState):
     try:
         if conn.recv(1) == b"C":
+            print("Capturing image")
             # Wait until pitch is within tolerance of level before capturing.
+            """
             while True:
+                print("Waiting for pitch to be within tolerance of level")
                 downward_range, pitch, roll = telemetry_state.get()
                 if not math.isnan(pitch) and abs(pitch) <= PITCH_LEVEL_TOLERANCE_RAD:
                     #Wait for roll to be within tolerance of level as well
                     if not math.isnan(roll) and abs(roll)<= ROLL_LEVEL_TOLERANCE_RAD:
                         break
+                
                 # Update at ~50 Hz while waiting for level
                 time.sleep(0.02)
+            """
             jpeg_bytes_ardu=camera2.capture_payloads()
             jpeg_bytes, depth_bytes, center_depth_m = camera.capture_payloads()
             header = struct.pack(
@@ -388,10 +403,12 @@ def handle_client(conn, addr, camera: OakCamera,camera2:Arducam, telemetry_state
 
 def run_server():
     telemetry_state = TelemetryState()
+    downward_range, pitch, roll = telemetry_state.get()
     mav_thread = MavlinkReader(FC_ADDR, telemetry_state)
     mav_thread.start()
     camera = OakCamera(FRAME_WIDTH, FRAME_HEIGHT)
     camera_down=Arducam(ARDU_HEIGHT,ARDU_WIDTH)
+    center_depth_m = camera.capture_payloads()[2]
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind((HOST, PORT))
@@ -401,7 +418,7 @@ def run_server():
     try:
         while True:
             conn, addr = server_sock.accept()
-            handle_client(conn, addr, camera,camera_down, telemetry_state)
+            handle_client(conn, addr, downward_range,center_depth_m, pitch, roll, camera,camera_down, telemetry_state)
     except KeyboardInterrupt:
         pass
     finally:
