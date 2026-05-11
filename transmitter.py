@@ -28,7 +28,7 @@ DEPTH_PNG_COMPRESSION = 3
 # Flight Controller Connection Settings
 # For serial (e.g. Raspberry Pi GPIO): "/dev/ttyAMA0" or "/dev/serial0"
 # For UDP (e.g. SITL or network): "udpout:IP_ADDRESS:PORT"
-FC_ADDR = "/dev/ttyAMA0"
+FC_ADDR = "udpout:192.168.144.14:5000"
 FC_BAUD = 57600
 
 # How long to wait for MAVLink messages before giving up (seconds)
@@ -141,8 +141,8 @@ class MavlinkReader(threading.Thread):
             logging.info(f"Connecting to FC MAVLink: {self.connection_str}")
             # Use FC_BAUD if it's a serial connection
             self._mav = mavutil.mavlink_connection(
-                self.connection_str, baud=FC_BAUD, dialect="ardupilotmega"
-            )
+                self.connection_str, dialect="ardupilotmega"
+            ) # baud=FC_BAUD
         except Exception as exc:
             logging.error(f"MAVLink Connection failed: {exc}")
             return
@@ -317,12 +317,13 @@ def handle_client(conn, addr, camera: OakCamera, telemetry_state: TelemetryState
     try:
         if conn.recv(1) == b"C":
             # Wait until pitch is within tolerance of level before capturing.
-            while True:
-                downward_range, pitch, roll = telemetry_state.get()
-                if not math.isnan(pitch) and abs(pitch) <= PITCH_LEVEL_TOLERANCE_RAD:
-                    break
-                # Update at ~50 Hz while waiting for level
-                time.sleep(0.02)
+            # while True:
+            #     downward_range, pitch, roll = telemetry_state.get()
+            #     if not math.isnan(pitch) and abs(pitch) <= PITCH_LEVEL_TOLERANCE_RAD:
+            #         break
+            #     # Update at ~50 Hz while waiting for level
+            #     time.sleep(0.02)
+            downward_range, pitch, roll = telemetry_state.get()
 
             jpeg_bytes, depth_bytes, center_depth_m = camera.capture_payloads()
             header = struct.pack(
