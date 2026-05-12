@@ -62,7 +62,6 @@ def main() -> int:
 		baud=FC_BAUD,
 		dialect="ardupilotmega",
 		source_system=255,
-		source_component=mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER,
 	)
 
 	print("Waiting for first heartbeat...")
@@ -84,8 +83,23 @@ def main() -> int:
 		f"Requesting ATTITUDE every {ATTITUDE_INTERVAL_US} us "
 		f"(target sys={mav.target_system}, comp={target_component})..."
 	)
-	send_gcs_heartbeat(mav)
+
+	for _ in range(3):
+		send_gcs_heartbeat(mav)
+		time.sleep(0.5)
+
 	send_requests(mav, target_component)
+
+	deadline = time.monotonic() + 1.0
+	while time.monotonic() < deadline:
+		early = mav.recv_match(blocking=True, timeout=0.1)
+		if early is not None and early.get_type() == "COMMAND_ACK":
+			result = early.result
+			ok = result == mavutil.mavlink.MAV_RESULT_ACCEPTED
+			print(
+				f"[startup] COMMAND_ACK cmd={early.command} "
+				f"result={result} ({'OK' if ok else 'FAIL — FC rejected the request'})"
+			)
 
 	counts: Counter = Counter()
 	last_rerequest = time.monotonic()
@@ -116,7 +130,12 @@ def main() -> int:
 					f"roll={msg.roll:.4f} rad ({roll_deg:.2f} deg)"
 				)
 			elif mtype == "COMMAND_ACK":
-				print(f"COMMAND_ACK: {msg}")
+				result = msg.result
+				ok = result == mavutil.mavlink.MAV_RESULT_ACCEPTED
+				print(
+					f"COMMAND_ACK cmd={msg.command} result={result} "
+					f"({'OK' if ok else 'FAIL — FC rejected the request'})"
+				)
 			elif mtype == "STATUSTEXT":
 				print(f"STATUSTEXT: {msg.text}")
 			elif mtype == "BAD_DATA":
