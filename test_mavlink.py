@@ -3,7 +3,7 @@ import time
 from pymavlink import mavutil
 
 
-FC_ADDR = "udpout:192.168.144.14:5000"
+FC_ADDR = "/dev/serial0"
 HEARTBEAT_TIMEOUT = 1.0
 
 
