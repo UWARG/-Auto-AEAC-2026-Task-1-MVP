@@ -61,8 +61,6 @@ def main() -> int:
 		FC_ADDR,
 		baud=FC_BAUD,
 		dialect="ardupilotmega",
-		source_system=255,
-		source_component=mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER,
 	)
 
 	print("Waiting for first heartbeat...")
