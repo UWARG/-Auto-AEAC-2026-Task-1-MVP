@@ -33,7 +33,7 @@ ARDU_HEIGHT=360
 # For serial (e.g. Raspberry Pi GPIO): "/dev/ttyAMA0" or "/dev/serial0"
 # For UDP (e.g. SITL or network): "udpout:IP_ADDRESS:PORT"
 FC_ADDR = "/dev/ttyAMA0"
-FC_BAUD = 57600
+#FC_BAUD = 57600
 
 # How long to wait for MAVLink messages before giving up (seconds)
 MAVLINK_TIMEOUT = 1.0
@@ -146,7 +146,7 @@ class MavlinkReader(threading.Thread):
             logging.info(f"Connecting to FC MAVLink: {self.connection_str}")
             # Use FC_BAUD if it's a serial connection
             self._mav = mavutil.mavlink_connection(
-                self.connection_str, baud=FC_BAUD, dialect="ardupilotmega"
+                self.connection_str, dialect="ardupilotmega"
             )
         except Exception as exc:
             logging.error(f"MAVLink Connection failed: {exc}")
