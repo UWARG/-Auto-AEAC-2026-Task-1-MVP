@@ -1,4 +1,4 @@
-export type Point = { x: number; y: number };
+export type Point = { x: number; y: number,on_ground: boolean};
 
 export type Capture = {
   id: string;

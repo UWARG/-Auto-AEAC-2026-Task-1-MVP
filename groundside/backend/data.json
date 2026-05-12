@@ -1,0 +1,34 @@
+{
+   "captures": [
+      {
+         "downward_range": NaN,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260512_155105.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260512_155105.jpg",
+         "time": "20260512_155105",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260512_155105.npy",
+         "desc": null,
+         "direction": null,
+         "id": "8a042c7d-bd94-45b4-9e03-116673ceeaef"
+      },
+      {
+         "downward_range": NaN,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260512_160018.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260512_160018.jpg",
+         "time": "20260512_160018",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260512_160018.npy",
+         "desc": null,
+         "direction": null,
+         "id": "bb6dd25c-66db-4374-8af6-a110ef8a107b"
+      },
+      {
+         "downward_range": NaN,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260512_160647.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260512_160647.jpg",
+         "time": "20260512_160647",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260512_160647.npy",
+         "desc": null,
+         "direction": null,
+         "id": "ef4c455c-dfdb-46b5-ad4c-35e69085b3a3"
+      }
+   ]
+}

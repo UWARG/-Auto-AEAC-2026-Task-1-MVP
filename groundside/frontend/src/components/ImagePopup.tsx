@@ -12,12 +12,19 @@ type Props = {
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseUp: () => void;
   onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onContextMenu: (e: React.MouseEvent<HTMLDivElement>) => void;
 };
 
 export function ImagePopup({
   popup, zoom, pan, popupContainerRef,
   onClose, onMouseDown, onMouseMove, onMouseUp, onClick,
+  onContextMenu,
 }: Props) {
+  if (popup?.imageType === "downward" && !popup?.green){
+    console.error("Cannot set reference for downard camera");
+    onClose();
+    return null;
+  } 
   if (!popup) return null;
 
   return (
@@ -94,6 +101,7 @@ export function ImagePopup({
             <div
               style={{ position: "absolute", inset: 0, cursor: "crosshair" }}
               onClick={onClick}
+              onContextMenu={onContextMenu}
             >
               <AnnotationOverlay green={popup.green} red={popup.red} />
             </div>

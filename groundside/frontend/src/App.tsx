@@ -19,6 +19,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+
   const colourRef = useRef<HTMLInputElement>(null);
   const referenceRef = useRef<HTMLInputElement>(null);
   const outputBoxRef = useRef<HTMLDivElement>(null);
@@ -49,8 +50,8 @@ function App() {
     selectedId ? captures.find((c) => c.id === selectedId) ?? null : null;
 
   const direction =
-    savedAnnotation?.imageType === "forward" ? "F"
-    : savedAnnotation?.imageType === "downward" ? "D"
+    savedAnnotation?.red?.on_ground ? "D"
+    : savedAnnotation?.red ? "F"
     : null;
 
   const output = [
@@ -71,9 +72,9 @@ function App() {
       setError("");
       const res = await fetch("/api/captures");
       if (!res.ok) throw new Error("Failed to load captures");
-      const data: Capture[] = await res.json();
-      setCaptures(data);
-      if (data.length > 0) setSelectedId(data[0].id);
+      const data = await res.json();
+      const rows: Capture[] = Array.isArray(data) ? data : [];
+      setCaptures(rows);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load captures");
     } finally {
@@ -109,9 +110,10 @@ function App() {
   const handleClosePopup = useCallback(() => {
     const p = popupRef.current;
     if (!p) return;
+    console.log("closing popup", p);
     setSavedAnnotation({ green: p.green, red: p.red, imageType: p.imageType });
-    setPopup(null);
     setTimeout(() => colourRef.current?.focus(), 50);
+    setPopup(null);
   }, []);
 
   useEffect(() => {
@@ -146,11 +148,34 @@ function App() {
   }, [handleFetchImages, handleClosePopup]);
 
   function handleOpenPopup(url: string, imageType: "forward" | "downward") {
-    setPopup({ url, imageType, green: null, red: null });
+    const object: PopupState = { url, imageType, green: savedAnnotation?.green??null, red: savedAnnotation?.red??null };
+    if (imageType === "forward" && object.green?.on_ground){
+      object.green=null;
+    }
+    if (imageType==="forward" && object.red?.on_ground){
+      object.red=null;
+    }
+    if (imageType==="downward" && !object.green?.on_ground){
+      object.green=null;
+    }
+    if (imageType==="downward" && !object.red?.on_ground){
+      object.red=null;
+    }
+    console.log(object);
+    setPopup(object);
     setZoom(1.5);
     setPan({ x: 0, y: 0 });
   }
 
+  function handlePopupContextMenu(e: React.MouseEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (e.button===2){
+      console.log("resetting popup");
+      setPopup((p) => {
+        return p?{ ...p, green: null, red: null }:null;
+      });
+    }
+  }
   function handlePopupClick(e: React.MouseEvent<HTMLDivElement>) {
     if (hasPannedRef.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -158,10 +183,17 @@ function App() {
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     setPopup((p) => {
       if (!p) return p;
-      if (!p.green) return { ...p, green: { x, y } };
-      if (!p.red) return { ...p, red: { x, y } };
+      if (!p.green) {
+        console.log("setting green", x,y);
+        return { ...p, green: { x, y, on_ground: p.imageType === "downward" } };
+      }
+      if (!p.red){
+        console.log("setting red", x,y);
+        return { ...p, red: { x, y, on_ground: p.imageType === "downward" } };
+      } 
       return p;
     });
+    
   }
 
   function handleMouseDown(e: React.MouseEvent) {
@@ -203,10 +235,13 @@ function App() {
     try {
       setIsSubmitting(true);
       setError("");
+      if (!savedAnnotation?.green || !savedAnnotation?.red || !savedAnnotation?.imageType) {
+        throw new Error("Select both target and reference points first");
+      }
 
       const dir =
-        savedAnnotation?.imageType === "forward" ? "F"
-        : savedAnnotation?.imageType === "downward" ? "D"
+        savedAnnotation?.red?.on_ground ? "D"
+        : savedAnnotation?.red ? "F"
         : null;
 
       const descParts = [
@@ -215,12 +250,7 @@ function App() {
         form.reference && `Reference Point: ${form.reference}`,
       ].filter(Boolean);
 
-      const imageUrl = imagePair
-        ? savedAnnotation?.imageType === "forward"
-          ? imagePair.forwardUrl
-          : imagePair.downwardUrl
-        : null;
-
+      /*
       const payload = {
         colour: form.colour || null,
         direction: dir,
@@ -231,22 +261,50 @@ function App() {
         imageUrl,
         time: new Date().toISOString(),
       };
+      */
 
-      const res = await fetch("/api/captures", {
+     const payload={
+      x_ref:savedAnnotation?.green?.x,
+      y_ref:savedAnnotation?.green?.y,
+      x_tar:savedAnnotation?.red?.x,
+      y_tar:savedAnnotation?.red?.y,
+      mode:"aided",
+      color:form.colour,
+      ref_desc:descParts.length > 0 ? descParts.join(" | ") : null,
+      target_on_ground:savedAnnotation?.red?.on_ground ? "true" : "false",
+     }
+
+      const res = await fetch("/api/generate_output", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
+      console.log(res);
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.message ?? "Failed to save capture");
       }
-
-      const created: Capture = await res.json();
-      setCaptures((c) => [created, ...c]);
-      setSelectedId(created.id);
-
+      const data = await res.json();
+      const imageB64 = savedAnnotation.red.on_ground
+        ? data.ardu_image
+        : data.oakd_image;
+      const createdCapture: Capture = {
+        id:data.id,
+        time:new Date().toISOString(),
+        colour:form.colour,
+        direction:savedAnnotation?.red?.on_ground ? "D" : "F",
+        reference:form.reference,
+        desc:data.desc ?? (descParts.length > 0 ? descParts.join(" | ") : null),
+        imageUrl:imageB64 ? `data:image/jpeg;base64,${imageB64}` : imagePair?.forwardUrl ?? null,
+        green:savedAnnotation?.green ?? null,
+        red:savedAnnotation?.red ?? null,
+      };
+      setCaptures((current) => [createdCapture, ...current]);
+      setSelectedId(createdCapture.id);
+      
+      //const created: Capture = await res.json();
+      //setCaptures((c) => [created, ...c]);
+      //setSelectedId(created.id);
       setForm({ colour: "", reference: "" });
       setImagePair(null);
       setSavedAnnotation(null);
@@ -271,6 +329,7 @@ function App() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onClick={handlePopupClick}
+        onContextMenu={handlePopupContextMenu}
       />
 
       <div className="max-w-5xl w-full px-6 py-6 flex flex-col gap-6">

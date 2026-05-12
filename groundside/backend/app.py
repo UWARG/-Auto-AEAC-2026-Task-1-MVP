@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import math
 import socket
 import struct
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 import cv2
 from flask import Flask, jsonify, request
@@ -174,6 +174,7 @@ def handle_capture_success(
     depth_map: np.ndarray,
 ) -> Tuple[str,str,str]:
     db=load_db()
+    captures=db["captures"]
     roll=roll if roll==roll else None
 
     # Rotate image to remove roll before any geometric calculations.
@@ -223,10 +224,10 @@ def handle_capture_success(
     latest["depth_map_name"]=str(depth_map_name)
     latest["desc"]=None
     latest["direction"]=None
-    pk=str(uuid.uuid4())
-    db["captures"][pk]=latest
+    latest["id"]=str(uuid.uuid4())
+    captures.append(latest)
     save_db(db)
-    return oakd_name,arducam_name,pk
+    return oakd_name,arducam_name,latest["id"]
 
 
 def sample_depth_m(x: int, y: int,depth_map:np.ndarray, radius: int = 4) -> Optional[float]:
@@ -478,7 +479,9 @@ def load_db():
             with open(DB_PATH, "r", encoding="utf-8") as f:
                 file=json.load(f)
         except Exception:
-            return {"captures":{}}
+            return {"captures":[]}
+    if not isinstance(file, dict):
+        return {"captures":[]}
     return file
 
 
@@ -495,7 +498,25 @@ def ack():
 @app.route("/api/captures", methods=["GET"])
 def list_captures():
     db = load_db()
-    return jsonify(db.get("captures", {}))
+    captures = db.get("captures", [])
+    rows = []
+    for cap in captures:
+        if not isinstance(cap, dict):
+            continue
+        rows.append(
+            {
+                "id": cap.get("id"),
+                "time": cap.get("time"),
+                "colour": None,
+                "direction": cap.get("direction"),
+                "reference": None,
+                "desc": cap.get("desc"),
+                "imageUrl": None,
+                "green": None,
+                "red": None,
+            }
+        )
+    return jsonify(rows)
 
 
 @app.route("/api/db_reset", methods=["POST"])
@@ -542,34 +563,29 @@ def capture_image():
 @app.route("/api/generate_output",methods=["POST"])
 def generate_output():
     payload = request.get_json(silent=True) or {}
-    x_ref=str(payload.get("reference_x","")).strip()
-    y_ref=str(payload.get("reference_y","")).strip()
-    x_tar=str(payload.get("target_x","")).strip()
-    y_tar=str(payload.get("target_y","")).strip()
+    x_ref=str(payload.get("x_ref","")).strip()
+    y_ref=str(payload.get("y_ref","")).strip()
+    x_tar=str(payload.get("x_tar","")).strip()
+    y_tar=str(payload.get("y_tar","")).strip()
     mode=str(payload.get("mode","")).strip()
     color=str(payload.get("color","")).strip()
-    ref_desc=str(payload.get("ref_description","")).strip()
+    ref_desc=str(payload.get("ref_desc","")).strip()
     target_on_ground=str(payload.get("target_on_ground","")).strip()
     if not x_ref or not y_ref or not x_tar or not y_tar or not mode or not target_on_ground:
         return jsonify({"message":"invalid payload field"}),400
-    try:
-        x_ref=int(x_ref)
-        y_ref=int(y_ref)
-        x_tar=int(x_tar)
-        y_tar=int(y_tar)
-    except ValueError as e:
-        return jsonify({"message":f"{e}"}),400
     if target_on_ground.casefold()=="true":
         target_on_ground=True
     elif target_on_ground.casefold()=="false":
         target_on_ground=False
     else:
         return jsonify({"message":"target_on_ground field invalid"}),400
+
     db=load_db()
-    if not db["captures"]:
+    captures=db["captures"]
+    if not captures:
         return jsonify({"message":"Capture image first"}),400
-    last_key=next(reversed(db["captures"]))
-    latest=db["captures"][last_key]
+    latest=captures[-1]
+    last_key=latest.get("id")
     if not latest["ardufile_name"] or not latest["oakd_name"] or not latest["time"] or not latest["depth_map_name"]:
         return jsonify({"message":"Invalid Image data"}),400
     ardufile_image=Image.open(latest["ardufile_name"])
@@ -578,6 +594,28 @@ def generate_output():
     if latest["downward_range"] is None:
         return jsonify({"message":"Invalid Image data"}),400
     downward=latest["downward_range"]
+
+    # Frontend sends 0–100 (% of image box); geometry expects pixel indices in the annotated image.
+    try:
+        x_ref_pct = float(x_ref)
+        y_ref_pct = float(y_ref)
+        x_tar_pct = float(x_tar)
+        y_tar_pct = float(y_tar)
+    except ValueError as e:
+        return jsonify({"message": f"{e}"}), 400
+
+    if target_on_ground:
+        W, H = ardufile_image.width, ardufile_image.height
+    else:
+        W, H = oakd_image.width, oakd_image.height
+
+    def pct_to_px(xp: float, yp: float) -> tuple[int, int]:
+        xi = int(round(xp / 100.0 * W))
+        yi = int(round(yp / 100.0 * H))
+        return max(0, min(W - 1, xi)), max(0, min(H - 1, yi))
+
+    x_ref, y_ref = pct_to_px(x_ref_pct, y_ref_pct)
+    x_tar, y_tar = pct_to_px(x_tar_pct, y_tar_pct)
 
     #need 0 < x_ref,y_ref,x_tar,y_tar < image.height/width and downward_range > 0 validation? 
     latest["direction"]="D" if target_on_ground else "F"
@@ -596,7 +634,8 @@ def generate_output():
         return jsonify({
             "oakd_image":oak_d,
             "ardu_image":base64.b64encode(arducam_img).decode(),
-            "output":None
+            "output":None,
+            "id": last_key,
         }),200
     elif mode=="aided":
         if not color or not ref_desc:
@@ -618,7 +657,8 @@ def generate_output():
         save_db(db)
         return jsonify({"desc":output,
                         "oakd_image":oak_d,
-                        "ardu_image":ardu
+                        "ardu_image":ardu,
+                        "id": last_key,
                         }),200
     return jsonify({"message":"invalid mode"}),400
 
@@ -630,7 +670,11 @@ def save_by_id():
         pk=(str(payload.get("pk","")).strip())
         if pk=="":
             return jsonify({"message":"recieved empty pk"}),400
-        entry=db["captures"].get(pk,{})
+        entry=None
+        for cap in db["captures"]:
+            if str(cap.get("id","")).strip()==pk:
+                entry=cap
+                break
         if not entry:
             return jsonify({"message":f"cannot find pk{pk}"}),400
         description=entry["desc"]
@@ -655,7 +699,13 @@ def delete_by_id(pk):
     db=load_db()
     try:
         pk=str(pk).strip()
-        popped=db["captures"].pop(pk)
+        popped=None
+        for i, cap in enumerate(db["captures"]):
+            if str(cap.get("id","")).strip()==pk:
+                popped=db["captures"].pop(i)
+                break
+        if popped is None:
+            return jsonify({"message":f"invalid pk"}),400
     except Exception as e:
         return jsonify({"message":f"invalid pk"}),400
     save_db(db)
