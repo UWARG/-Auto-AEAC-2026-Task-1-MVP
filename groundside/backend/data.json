@@ -1,24 +1,3 @@
 {
-   "captures": [
-      {
-         "downward_range": NaN,
-         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260512_202307.jpg",
-         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260512_202307.jpg",
-         "time": "20260512_202307",
-         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260512_202307.npy",
-         "desc": "error generating description",
-         "direction": "D",
-         "id": "3f852802-7268-41c9-89d9-39c2b152a8ad"
-      },
-      {
-         "downward_range": NaN,
-         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260512_202355.jpg",
-         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260512_202355.jpg",
-         "time": "20260512_202355",
-         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260512_202355.npy",
-         "desc": "The target is aaaaaa, and is located N/A off the ground and 1.19 m to the right of the Colour: aaaaaa | Direction: F | Reference Point: aaaaa.",
-         "direction": "F",
-         "id": "77b3f142-bcc3-4049-b51f-3f31be0b28e5"
-      }
-   ]
+   "captures": {}
 }
