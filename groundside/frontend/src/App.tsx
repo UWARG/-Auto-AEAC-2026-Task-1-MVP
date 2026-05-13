@@ -290,27 +290,11 @@ function App() {
         throw new Error("Select both target and reference points first");
       }
 
-      const dir =
-        savedAnnotation?.red?.on_ground ? "D"
-        : savedAnnotation?.red ? "F"
-        : null;
 
       const descParts = [
         form.reference && `Reference Point: ${form.reference}`,
       ].filter(Boolean);
 
-      /*
-      const payload = {
-        colour: form.colour || null,
-        direction: dir,
-        reference: form.reference || null,
-        desc: descParts.length > 0 ? descParts.join(" | ") : null,
-        green: savedAnnotation?.green ?? null,
-        red: savedAnnotation?.red ?? null,
-        imageUrl,
-        time: new Date().toISOString(),
-      };
-      */
 
      const payload={
       x_ref:savedAnnotation?.green?.x,

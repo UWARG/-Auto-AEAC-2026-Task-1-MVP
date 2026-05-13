@@ -172,13 +172,23 @@ def rotate_depth_map(depth_map: np.ndarray, angle_deg: float) -> np.ndarray:
 def handle_capture_success(
     downwards_range: float,
     roll: float,
+    pitch: float,
+    yaw: float,
     image: Image.Image,
     image2: Image.Image,
     depth_map: np.ndarray,
 ) -> Tuple[str,str,str]:
     db=load_db()
     captures=db["captures"]
-    roll=roll if roll==roll else None
+    def _nan_to_none(v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        return v if v == v else None
+
+    roll = _nan_to_none(roll)
+    pitch = _nan_to_none(pitch)
+    yaw = _nan_to_none(yaw)
+    downwards_range = _nan_to_none(downwards_range)
 
     # Rotate image to remove roll before any geometric calculations.
     display_image = image.copy()
@@ -228,6 +238,9 @@ def handle_capture_success(
     latest["desc"]=None
     latest["direction"]=None
     latest["id"]=str(uuid.uuid4())
+    latest["roll"]=roll
+    latest["pitch"]=pitch
+    latest["yaw"]=yaw
     captures.append(latest)
     save_db(db)
     return oakd_name,arducam_name,latest["id"]
@@ -512,7 +525,7 @@ def _to_iso_time(raw: Any) -> str:
         return datetime.now(timezone.utc).isoformat()
     try:
         dt = datetime.strptime(text, "%Y%m%d_%H%M%S")
-        return dt.replace(tzinfo=timezone.utc).isoformat()
+        return dt.isoformat()
     except Exception:
         return text
 
@@ -551,7 +564,7 @@ def list_captures():
     db = load_db()
     captures: list[dict[str, Any]] = db.get("captures", [])
     rows = []
-    for cap in reversed[dict[str, Any]](captures):
+    for cap in reversed(captures):
         if not isinstance(cap, dict):
             continue
         direction = cap.get("direction")
@@ -575,6 +588,10 @@ def list_captures():
                 "imageUrl2": ardu_url,
                 "green": _normalize_point(cap.get("green")),
                 "red": _normalize_point(cap.get("red")),
+                "roll": cap.get("roll"),
+                "pitch": cap.get("pitch"),
+                "yaw": cap.get("yaw"),
+                "downwardRange": cap.get("downward_range"),
             }
         )
     return jsonify(rows)
@@ -596,6 +613,8 @@ def capture_image():
         oakd_name,arducam_name,pk=handle_capture_success(
         downwards_range,
         roll,
+        pitch,
+        yaw,
         image,
         image2,
         depth_map,
@@ -632,7 +651,6 @@ def generate_output():
     mode=str(payload.get("mode","")).strip()
     color=str(payload.get("color","")).strip()
     ref_desc=str(payload.get("ref_desc","")).strip()
-    yaw=str(payload.get("yaw","")).strip()
     target_on_ground=str(payload.get("target_on_ground","")).strip()
     if not x_ref or not y_ref or not x_tar or not y_tar or not mode or not target_on_ground:
         return jsonify({"message":"invalid payload field"}),400
@@ -642,10 +660,6 @@ def generate_output():
         target_on_ground=False
     else:
         return jsonify({"message":"target_on_ground field invalid"}),400
-    if not yaw:
-        app.logger.info("yaw field invalid: %s", yaw)
-        return jsonify({"message":"yaw field invalid"}),400
-    yaw=float(yaw)
     db=load_db()
     captures=db["captures"]
     if not captures:
@@ -658,6 +672,7 @@ def generate_output():
     oakd_image=Image.open(latest["oakd_name"])
     depth_map=np.load(latest["depth_map_name"])
     oakd_name=latest["oakd_name"]
+    yaw=latest.get("yaw")
     arducam_name=latest["ardufile_name"]
     if latest["downward_range"] is None:
         return jsonify({"message":"Invalid Image data"}),400
