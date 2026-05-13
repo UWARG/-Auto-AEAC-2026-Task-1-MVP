@@ -36,6 +36,8 @@ TARGET_CROSSHAIR_COLOUR = "lime"  # green, for "Select target center"
 REFERENCE_CROSSHAIR_COLOUR = "deepskyblue"  # blue, for "Select reference point"
 CROSSHAIR_SIZE = 8  # half-length of each crosshair arm in pixels
 
+OAKD_FORWARD_OFFSET=0.1 #meters
+ARDUCAM_RIGHT_OFFSET=0.5 #meters
 
 # =========================
 # Configuration
@@ -63,6 +65,7 @@ FISHEYE_EDGE_FACTOR = 0.0
 
 app = Flask(__name__)
 CORS(app)
+app.logger.setLevel("INFO")
 
 DB_PATH = Path(__file__).with_name("data.json")
 capture_in_progress=threading.Lock()
@@ -381,6 +384,7 @@ def compute_lateral_offset_m(img:Image.Image,x_tar:int,y_tar:int,x_ref:int,y_ref
 
 def compute_cross_camera_offset(x_tar:int,y_tar:int,x_ref:int,y_ref:int,downward:float,target_on_ground:bool,ardu_image:Image.Image,oakd_image:Image.Image,depth_map:np.ndarray) -> tuple[float,float,float]|None:
     if not target_on_ground:
+        print("target not on ground")
         return None
     tx, ty = x_tar,y_tar
     rx, ry = x_ref,y_ref
@@ -394,7 +398,7 @@ def compute_cross_camera_offset(x_tar:int,y_tar:int,x_ref:int,y_ref:int,downward
     H=oakd_image.height
     a_horizontal=((rx-W/2)/(W/2))*half_hfov
     a_vertical=((ry-H/2)/(H/2))*half_vfov
-    ref_x=ref_depth
+    ref_x=ref_depth-OAKD_FORWARD_OFFSET
     ref_y=ref_depth*math.tan(a_horizontal)
     ref_z=ref_depth*math.tan(a_vertical)
     #for arducam ground target
@@ -405,17 +409,18 @@ def compute_cross_camera_offset(x_tar:int,y_tar:int,x_ref:int,y_ref:int,downward
     a_horizontal=((tx-W/2)/(W/2))*half_hfov
     a_vertical=((H/2-ty)/(H/2))*half_vfov #flip h/2 and ty signs for oakd to be facing in positive x dir
     target_x=downward_range*math.tan(a_vertical) 
-    target_y=downward_range*math.tan(a_horizontal)
+    target_y=downward_range*math.tan(a_horizontal)+ARDUCAM_RIGHT_OFFSET
     target_z=downward_range
     #positive coordinates:
-    #oak-d image right
-    #down
-    #arducam up
+    #oak-d image right(Y)
+    #down(Z)
+    #arducam up(X)
     return (target_x-ref_x, #should always be negative
             target_y-ref_y,
             target_z-ref_z)
-def write_output(colour: str, ref_desc: str,x_tar:int,y_tar:int,x_ref:int,y_ref:int,downward:float,ardu_image:Image.Image,oakd_image:Image.Image,depth_map:np.ndarray,target_on_ground:bool) -> str:
+def write_output(colour: str, ref_desc: str,x_tar:int,y_tar:int,x_ref:int,y_ref:int,downward:float,ardu_image:Image.Image,oakd_image:Image.Image,depth_map:np.ndarray,target_on_ground:bool,yaw:float) -> str:
     """Build the output sentence and write it to the output text box."""
+    app.logger.info("inside write_output, target_on_ground=%s", target_on_ground)
     if not target_on_ground:           
         corrected_up = compute_corrected_up_m(x_tar,y_tar,downward,oakd_image,depth_map)
         if corrected_up is not None:
@@ -434,14 +439,24 @@ def write_output(colour: str, ref_desc: str,x_tar:int,y_tar:int,x_ref:int,y_ref:
         )
     else:
         result=compute_cross_camera_offset(x_tar,y_tar,x_ref,y_ref,downward,target_on_ground,ardu_image,oakd_image,depth_map)
+        app.logger.info("cross-camera result=%s", result)
         if result is None:
             output=("error generating description")
         else:
             x,y,z=result
+            if (yaw<=math.pi/4 and yaw>-math.pi/4):
+                cardinality="south"
+            elif (yaw>math.pi/4 and yaw<=3*math.pi/4):
+                cardinality="west"
+            elif ((yaw>3*math.pi/4 and yaw<=math.pi) or (yaw<-3*math.pi/4 and yaw>=-math.pi)):
+                cardinality="north"
+            elif (yaw<=-math.pi/4 and yaw>=-3*math.pi/4):
+                cardinality="east"
             output=(
-                f"The target is {colour}, and is located {x:.2f} meters forward, {z:.2f} meters down"
-                f" and {y:.2f} meters right from the reference"
+                f"The target is {colour}, and is located {-x:.2f} meters in front of, {z:.2f} meters down"
+                f" and {y:.2f} meters right from the {ref_desc} which is on the {cardinality} wall"
             ) 
+        app.logger.info("output=%s", output)
     return output
 
 
@@ -513,6 +528,19 @@ def _file_to_data_url(path_str: Any) -> Optional[str]:
     except Exception:
         return None
 
+
+def _normalize_point(raw: Any) -> Optional[dict[str, Any]]:
+    """Return a sanitized annotation point dict or None."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        x = float(raw.get("x"))
+        y = float(raw.get("y"))
+        on_ground = bool(raw.get("on_ground"))
+    except (TypeError, ValueError):
+        return None
+    return {"x": x, "y": y, "on_ground": on_ground}
+
 @app.route("/api/ackme")
 def ack():
     return jsonify({"message": "test"})
@@ -523,7 +551,7 @@ def list_captures():
     db = load_db()
     captures = db.get("captures", [])
     rows = []
-    for cap in captures:
+    for cap in reversed(captures):
         if not isinstance(cap, dict):
             continue
         direction = cap.get("direction")
@@ -538,15 +566,15 @@ def list_captures():
             {
                 "id": cap.get("id"),
                 "time": _to_iso_time(cap.get("time")),
-                "colour": None,
+                "colour": cap.get("colour"),
                 "direction": direction,
-                "reference": None,
+                "reference": cap.get("reference"),
                 "desc": cap.get("desc"),
                 "imageUrl": image_path_url,
                 "imageUrl1": oakd_url,
                 "imageUrl2": ardu_url,
-                "green": None,
-                "red": None,
+                "green": _normalize_point(cap.get("green")),
+                "red": _normalize_point(cap.get("red")),
             }
         )
     return jsonify(rows)
@@ -604,6 +632,7 @@ def generate_output():
     mode=str(payload.get("mode","")).strip()
     color=str(payload.get("color","")).strip()
     ref_desc=str(payload.get("ref_desc","")).strip()
+    yaw=str(payload.get("yaw","")).strip()
     target_on_ground=str(payload.get("target_on_ground","")).strip()
     if not x_ref or not y_ref or not x_tar or not y_tar or not mode or not target_on_ground:
         return jsonify({"message":"invalid payload field"}),400
@@ -613,7 +642,10 @@ def generate_output():
         target_on_ground=False
     else:
         return jsonify({"message":"target_on_ground field invalid"}),400
-
+    if not yaw:
+        app.logger.info("yaw field invalid: %s", yaw)
+        return jsonify({"message":"yaw field invalid"}),400
+    yaw=float(yaw)
     db=load_db()
     captures=db["captures"]
     if not captures:
@@ -625,6 +657,8 @@ def generate_output():
     ardufile_image=Image.open(latest["ardufile_name"])
     oakd_image=Image.open(latest["oakd_name"])
     depth_map=np.load(latest["depth_map_name"])
+    oakd_name=latest["oakd_name"]
+    arducam_name=latest["ardufile_name"]
     if latest["downward_range"] is None:
         return jsonify({"message":"Invalid Image data"}),400
     downward=latest["downward_range"]
@@ -638,55 +672,68 @@ def generate_output():
     except ValueError as e:
         return jsonify({"message": f"{e}"}), 400
 
+    def pct_to_px(xp: float, yp: float, width: int, height: int) -> tuple[int, int]:
+        xi = int(round(xp / 100.0 * width))
+        yi = int(round(yp / 100.0 * height))
+        return max(0, min(width - 1, xi)), max(0, min(height - 1, yi))
+
+    # Reference is always selected on OAK-D image.
+    x_ref, y_ref = pct_to_px(x_ref_pct, y_ref_pct, oakd_image.width, oakd_image.height)
+    # Target can be on OAK-D (forward) or Arducam (downward).
     if target_on_ground:
-        W, H = ardufile_image.width, ardufile_image.height
+        x_tar, y_tar = pct_to_px(
+            x_tar_pct,
+            y_tar_pct,
+            ardufile_image.width,
+            ardufile_image.height,
+        )
     else:
-        W, H = oakd_image.width, oakd_image.height
-
-    def pct_to_px(xp: float, yp: float) -> tuple[int, int]:
-        xi = int(round(xp / 100.0 * W))
-        yi = int(round(yp / 100.0 * H))
-        return max(0, min(W - 1, xi)), max(0, min(H - 1, yi))
-
-    x_ref, y_ref = pct_to_px(x_ref_pct, y_ref_pct)
-    x_tar, y_tar = pct_to_px(x_tar_pct, y_tar_pct)
+        x_tar, y_tar = pct_to_px(x_tar_pct, y_tar_pct, oakd_image.width, oakd_image.height)
 
     #need 0 < x_ref,y_ref,x_tar,y_tar < image.height/width and downward_range > 0 validation? 
     latest["direction"]="D" if target_on_ground else "F"
+    # Persist overlay metadata for history rendering.
+    latest["colour"] = color or None
+    latest["reference"] = ref_desc or None
+    latest["green"] = {"x": x_ref_pct, "y": y_ref_pct, "on_ground": False}
+    latest["red"] = {"x": x_tar_pct, "y": y_tar_pct, "on_ground": target_on_ground}
     if mode == "full_manual":
+        print("inside full manual")
         if target_on_ground:
             return jsonify({"message":"cannot do cross-camera full manual"}),400
         new_oakd_image=draw_manual_measurements(x_tar,y_tar,x_ref,y_ref,oakd_image,depth_map)
         if new_oakd_image is None:
             return jsonify({"message":"could not draw measurement"}),400
-        buffer=io.BytesIO()
-        new_oakd_image.save(buffer,format="JPEG")
-        oak_d=base64.b64encode(buffer.getvalue()).decode()
+        
+        new_oakd_image.save(oakd_name,format="JPEG")
+        with open(oakd_name,"rb") as f:
+            oak_d=base64.b64encode(f.read()).decode()
         with open(latest["ardufile_name"],"rb") as f:
-            arducam_img=f.read()
+            arducam_img=base64.b64encode(f.read()).decode()
         save_db(db)
         return jsonify({
             "oakd_image":oak_d,
-            "ardu_image":base64.b64encode(arducam_img).decode(),
+            "ardu_image":arducam_img,
             "output":None,
             "id": last_key,
         }),200
     elif mode=="aided":
+        app.logger.info("inside aided")
         if not color or not ref_desc:
             return jsonify({"message":"Missing color and or reference description"}),400
-        output=write_output(color,ref_desc,x_tar,y_tar,x_ref,y_ref,downward,ardufile_image,oakd_image,depth_map,target_on_ground)
+        output=write_output(color,ref_desc,x_tar,y_tar,x_ref,y_ref,downward,ardufile_image,oakd_image,depth_map,target_on_ground,yaw)
         try:
             new_oakd_image,new_ardu_img=redraw_image_with_crosshairs(ardufile_image,oakd_image,x_tar,y_tar,x_ref,y_ref,target_on_ground)
         except Exception as e:
             return jsonify({"message":f"Could not draw crosshairs"}),400
         # do we want to write new_oakd_image and new_ardu_img back into the db? Would probably be ineffecient
         # for every pair of captures to have 4 file writes to db. Unannotated image should suffice...? 
-        buffer=io.BytesIO()
-        new_oakd_image.save(buffer,format="JPEG")
-        oak_d=base64.b64encode(buffer.getvalue()).decode()
-        buffer=io.BytesIO()
-        new_ardu_img.save(buffer,format="JPEG")
-        ardu=base64.b64encode(buffer.getvalue()).decode()
+        new_oakd_image.save(oakd_name,format="JPEG")
+        with open(oakd_name,"rb") as f:
+            oak_d=base64.b64encode(f.read()).decode()
+        new_ardu_img.save(arducam_name,format="JPEG")
+        with open(arducam_name,"rb") as f:
+            ardu=base64.b64encode(f.read()).decode()
         latest["desc"]=output
         save_db(db)
         return jsonify({"desc":output,

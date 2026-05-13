@@ -296,8 +296,6 @@ function App() {
         : null;
 
       const descParts = [
-        form.colour && `Colour: ${form.colour}`,
-        dir && `Direction: ${dir}`,
         form.reference && `Reference Point: ${form.reference}`,
       ].filter(Boolean);
 
@@ -323,6 +321,7 @@ function App() {
       color:form.colour,
       ref_desc:descParts.length > 0 ? descParts.join(" | ") : null,
       target_on_ground:savedAnnotation?.red?.on_ground ? "true" : "false",
+      yaw:telemetry.yaw,
      }
 
       const res = await fetch("/api/generate_output", {
@@ -338,6 +337,7 @@ function App() {
       const data = await res.json();
       const imageB64Oakd = data.oakd_image;
       const imageB64Ardu = data.ardu_image;
+      console.log("output: ",data.desc);
       const createdCapture: Capture = {
         id:data.id,
         time:new Date().toISOString(),
