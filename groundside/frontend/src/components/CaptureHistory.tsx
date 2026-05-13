@@ -10,6 +10,18 @@ type Props = {
   onDelete: (id: string) => void;
 };
 
+const RAD_TO_DEG = 180 / Math.PI;
+
+function formatAngle(rad: number | null | undefined): string {
+  if (rad === null || rad === undefined || Number.isNaN(rad)) return "N/A";
+  return `${(rad * RAD_TO_DEG).toFixed(1)}°`;
+}
+
+function formatMetres(m: number | null | undefined): string {
+  if (m === null || m === undefined || Number.isNaN(m)) return "N/A";
+  return `${m.toFixed(2)} m`;
+}
+
 export function CaptureHistory({ captures, selectedId, onSelect, isLoading, selectedCapture, onDelete }: Props) {
   return (
     <section className="w-full">
@@ -52,6 +64,15 @@ export function CaptureHistory({ captures, selectedId, onSelect, isLoading, sele
                     <span>
                       <span className="font-semibold">Reference:</span>{" "}
                       {capture.reference ?? "N/A"}
+                    </span>
+                    <span className="text-xs font-mono text-zinc-500 mt-0.5">
+                      <span className="font-sans font-semibold text-zinc-700">Roll:</span> {formatAngle(capture.roll)}
+                      {" · "}
+                      <span className="font-sans font-semibold text-zinc-700">Pitch:</span> {formatAngle(capture.pitch)}
+                      {" · "}
+                      <span className="font-sans font-semibold text-zinc-700">Yaw:</span> {formatAngle(capture.yaw)}
+                      {" · "}
+                      <span className="font-sans font-semibold text-zinc-700">Down:</span> {formatMetres(capture.downwardRange)}
                     </span>
                     {(capture.green || capture.red) && (
                       <span className="text-xs font-mono mt-0.5">
@@ -121,8 +142,17 @@ export function CaptureHistory({ captures, selectedId, onSelect, isLoading, sele
           >
             {selectedCapture ? (
               <>
-                <p className="text-xs text-zinc-400 mb-2 shrink-0">
+                <p className="text-xs text-zinc-400 mb-1 shrink-0">
                   {new Date(selectedCapture.time).toLocaleString()}
+                </p>
+                <p className="text-xs font-mono text-zinc-600 mb-2 shrink-0">
+                  <span className="font-sans font-semibold text-zinc-700">Roll:</span> {formatAngle(selectedCapture.roll)}
+                  {" · "}
+                  <span className="font-sans font-semibold text-zinc-700">Pitch:</span> {formatAngle(selectedCapture.pitch)}
+                  {" · "}
+                  <span className="font-sans font-semibold text-zinc-700">Yaw:</span> {formatAngle(selectedCapture.yaw)}
+                  {" · "}
+                  <span className="font-sans font-semibold text-zinc-700">Down:</span> {formatMetres(selectedCapture.downwardRange)}
                 </p>
                 <div
                   style={{

@@ -25,6 +25,7 @@ time:str                Timestamp of image taken
 depth_map_name:str      Path of depth map npy file
 desc:str                Generated description of target
 downward_range:float    Distance to ground
+yaw:float               Drone yaw (rad) at capture time
 direction:str           "F" if target is on forward cam(wall) or "D" if target is on downward cam(ground)
 """
 # Click mode for "Generate output" flow
@@ -79,10 +80,10 @@ def recv_exact(sock: socket.socket, num_bytes: int) -> bytes:
             break
         data.extend(chunk)
     return bytes(data)
-def request_image() -> Tuple[float, float, float, float, Image.Image, Image.Image,np.ndarray]:
+def request_image() -> Tuple[float, float, float, float, float, Image.Image, Image.Image,np.ndarray]:
     """
     Connects to the transmitter, sends a capture command, and receives:
-    - downward range (float32), center depth (float32), pitch (float32 rad), roll (float32 rad)
+    - downward range (float32), center depth (float32), pitch (float32 rad), roll (float32 rad), yaw (float32 rad)
     - RGB JPEG length (uint64), depth PNG length (uint64)
     - JPEG image bytes, 16-bit PNG depth bytes
     Returns (downward_range_m, center_depth_m, pitch_rad, roll_rad, PIL.Image, depth_map_mm).
@@ -95,14 +96,14 @@ def request_image() -> Tuple[float, float, float, float, Image.Image, Image.Imag
         # Send 1-byte capture command
         sock.sendall(b"C")
 
-        header = recv_exact(sock, 40)
-        if len(header) != 40:
+        header = recv_exact(sock, 44)
+        if len(header) != 44:
             raise RuntimeError(
-                f"Incomplete header received (expected 40 bytes, got {len(header)})"
+                f"Incomplete header received (expected 44 bytes, got {len(header)})"
             )
 
-        downwards_range, center_depth, pitch, roll, image_length, depth_length, ardu_image_length = (
-            struct.unpack("!ffffQQQ", header)
+        downwards_range, center_depth, pitch, roll, yaw, image_length, depth_length, ardu_image_length = (
+            struct.unpack("!fffffQQQ", header)
         )
 
         if image_length == 0:
@@ -143,7 +144,7 @@ def request_image() -> Tuple[float, float, float, float, Image.Image, Image.Imag
     if depth_map.ndim != 2:
         raise RuntimeError(f"Depth map has unexpected shape: {depth_map.shape}")
 
-    return downwards_range, center_depth, pitch, roll, image,image2, depth_map
+    return downwards_range, center_depth, pitch, roll, yaw, image,image2, depth_map
 
 def rotate_depth_map(depth_map: np.ndarray, angle_deg: float) -> np.ndarray:
     height, width = depth_map.shape[:2]
@@ -166,9 +167,24 @@ def rotate_depth_map(depth_map: np.ndarray, angle_deg: float) -> np.ndarray:
         borderValue=0,
     )
 
+def _nan_to_none(v):
+    """JSON-safe: collapse NaN floats to None so the frontend gets `null`."""
+    try:
+        if v is None:
+            return None
+        f = float(v)
+        if f != f:  # NaN
+            return None
+        return f
+    except (TypeError, ValueError):
+        return None
+
+
 def handle_capture_success(
     downwards_range: float,
+    pitch: float,
     roll: float,
+    yaw: float,
     image: Image.Image,
     image2: Image.Image,
     depth_map: np.ndarray,
@@ -217,7 +233,10 @@ def handle_capture_success(
 
     #get image in bytes
     latest={}
-    latest["downward_range"]=downwards_range
+    latest["downward_range"]=_nan_to_none(downwards_range)
+    latest["pitch"]=_nan_to_none(pitch)
+    latest["roll"]=_nan_to_none(roll)
+    latest["yaw"]=_nan_to_none(yaw)
     latest["ardufile_name"]=str(arducam_name)
     latest["oakd_name"]=str(oakd_name)
     latest["time"]=timestamp
@@ -547,6 +566,10 @@ def list_captures():
                 "imageUrl2": ardu_url,
                 "green": None,
                 "red": None,
+                "roll": _nan_to_none(cap.get("roll")),
+                "pitch": _nan_to_none(cap.get("pitch")),
+                "yaw": _nan_to_none(cap.get("yaw")),
+                "downwardRange": _nan_to_none(cap.get("downward_range")),
             }
         )
     return jsonify(rows)
@@ -564,10 +587,12 @@ def capture_image():
     if not capture_in_progress.acquire(blocking=False):
         return jsonify({"message":"image being captured"}),400
     try:
-        downwards_range, center_depth, pitch, roll, image,image2, depth_map = request_image()
+        downwards_range, center_depth, pitch, roll, yaw, image,image2, depth_map = request_image()
         oakd_name,arducam_name,pk=handle_capture_success(
         downwards_range,
+        pitch,
         roll,
+        yaw,
         image,
         image2,
         depth_map,
@@ -583,6 +608,7 @@ def capture_image():
         return jsonify({
             "roll":check_nan(roll),
             "pitch":check_nan(pitch),
+            "yaw":check_nan(yaw),
             "downward_range":check_nan(downwards_range),
             "center_depth":check_nan(center_depth),
             "arducam_image":arducam_string,
@@ -590,7 +616,7 @@ def capture_image():
             "pk":pk
         }),200
     except Exception as e:
-        return jsonify({"message":f"{e}"}),500
+        return jsonify({"messageaaaa":f"{e}"}),500
     finally:
         capture_in_progress.release()
 @app.route("/api/generate_output",methods=["POST"])
@@ -619,14 +645,20 @@ def generate_output():
         return jsonify({"message":"Capture image first"}),400
     latest=captures[-1]
     last_key=latest.get("id")
-    if not latest["ardufile_name"] or not latest["oakd_name"] or not latest["time"] or not latest["depth_map_name"]:
+    ardu_path = latest.get("ardufile_name")
+    oakd_path = latest.get("oakd_name")
+    depth_path = latest.get("depth_map_name")
+    if not ardu_path or not oakd_path or not latest.get("time") or not depth_path:
         return jsonify({"message":"Invalid Image data"}),400
-    ardufile_image=Image.open(latest["ardufile_name"])
-    oakd_image=Image.open(latest["oakd_name"])
-    depth_map=np.load(latest["depth_map_name"])
-    if latest["downward_range"] is None:
-        return jsonify({"message":"Invalid Image data"}),400
-    downward=latest["downward_range"]
+    try:
+        ardufile_image=Image.open(ardu_path)
+        oakd_image=Image.open(oakd_path)
+        depth_map=np.load(depth_path)
+    except Exception as e:
+        return jsonify({"message":f"Failed to load capture files: {e}"}),400
+    # downward_range may be None (rangefinder offline or telemetry missing).
+    # The geometry helpers handle None by returning None and printing "N/A".
+    downward=latest.get("downward_range")
 
     # Frontend sends 0–100 (% of image box); geometry expects pixel indices in the annotated image.
     try:
@@ -745,4 +777,4 @@ def delete_by_id(pk):
     return jsonify({"message":f"successfully popped {popped}"}),200
         
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(debug=True, threaded=True, port=5001)
