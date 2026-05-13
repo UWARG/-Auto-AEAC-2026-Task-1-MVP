@@ -1,2 +1,4 @@
 __pycache__
 venv
+./groundside/backend/images
+./groundside/backend/data.json

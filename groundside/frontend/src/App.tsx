@@ -272,7 +272,10 @@ function App() {
 
   async function handleSubmit() {
     try {
-      if (submittingRef.current) return;
+      if (submittingRef.current){
+        setError("Please wait for the previous submission to complete");
+        return;
+      } 
       submittingRef.current = true;
       setError("");
       if (!savedAnnotation?.green || !savedAnnotation?.red || !savedAnnotation?.imageType) {
