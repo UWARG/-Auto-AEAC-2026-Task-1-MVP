@@ -93,6 +93,19 @@
          "desc": "The target is RED, and is located -0.02 m off the ground and 1.12 m to the right of the Colour: RED | Direction: F | Reference Point: wall.",
          "direction": "F",
          "id": "2a9882f1-34b4-47e5-ae10-6e63d02854c4"
+      },
+      {
+         "downward_range": 0.41999998688697815,
+         "pitch": 0.01256570778787136,
+         "roll": -0.012372244149446487,
+         "yaw": 0.23749014735221863,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260513_143022.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260513_143022.jpg",
+         "time": "20260513_143022",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260513_143022.npy",
+         "desc": null,
+         "direction": null,
+         "id": "827aca08-9ed1-44db-a6f7-2d5690786f61"
       }
    ]
 }
