@@ -1,3 +1,14 @@
 {
-   "captures": {}
+   "captures": [
+      {
+         "downward_range": NaN,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260512_211455.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260512_211455.jpg",
+         "time": "20260512_211455",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260512_211455.npy",
+         "desc": "The target is aaaa, and is located nan meters forward, nan meters down and nan meters right from the reference",
+         "direction": "D",
+         "id": "1dd1be27-71b3-45f2-bd82-8a236e742dc5"
+      }
+   ]
 }
