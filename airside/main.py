@@ -33,7 +33,6 @@ ARDU_HEIGHT = 360
 # For serial (e.g. Raspberry Pi GPIO): "/dev/ttyAMA0" or "/dev/serial0"
 # For UDP (e.g. SITL or network): "udpout:IP_ADDRESS:PORT"
 FC_ADDR = "/dev/ttyAMA0"
-FC_BAUD = 57600
 
 # How long to wait for MAVLink messages before giving up (seconds)
 MAVLINK_TIMEOUT = 1.0
@@ -50,19 +49,21 @@ logging.basicConfig(
 
 
 class TelemetryState:
-    """Thread-safe storage for downward range and attitude (pitch/roll in rad)."""
+    """Thread-safe storage for downward range and attitude in radians."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._downward_range: Optional[float] = None
         self._pitch: Optional[float] = None  # radians, from ATTITUDE
         self._roll: Optional[float] = None  # radians, from ATTITUDE
+        self._yaw: Optional[float] = None  # radians, from ATTITUDE
 
     def update(
-        self,
+        self,   
         downward_range: Optional[float] = None,
         pitch: Optional[float] = None,
         roll: Optional[float] = None,
+        yaw: Optional[float] = None,
     ) -> None:
         with self._lock:
             if downward_range is not None:
@@ -71,8 +72,10 @@ class TelemetryState:
                 self._pitch = pitch
             if roll is not None:
                 self._roll = roll
+            if yaw is not None:
+                self._yaw = yaw
 
-    def get(self) -> Tuple[float, float, float]:
+    def get(self) -> Tuple[float, float, float, float]:
         with self._lock:
             downward_range = (
                 self._downward_range
@@ -81,7 +84,8 @@ class TelemetryState:
             )
             p = self._pitch if self._pitch is not None else float("nan")
             r = self._roll if self._roll is not None else float("nan")
-        return downward_range, p, r
+            y = self._yaw if self._yaw is not None else float("nan")
+        return downward_range, p, r, y
 
 
 class MavlinkReader(threading.Thread):
@@ -105,6 +109,7 @@ class MavlinkReader(threading.Thread):
         comp_id = self._mav.target_component
 
         # Try modern SET_MESSAGE_INTERVAL method
+        """
         requests = [
             ("RANGEFINDER", mavutil.mavlink.MAVLINK_MSG_ID_RANGEFINDER, 100_000),
             (
@@ -129,7 +134,7 @@ class MavlinkReader(threading.Thread):
                 0,
                 0,
             )
-
+        
         # Fallback: legacy request stream for older ArduPilot versions
         # MAV_DATA_STREAM_EXTRA1 includes ATTITUDE
         mav.request_data_stream_send(
@@ -140,13 +145,13 @@ class MavlinkReader(threading.Thread):
             1,  # Start
         )
         logging.info("Requested telemetry streams (Modern & Legacy)")
-
+        """
     def run(self) -> None:
         try:
             logging.info(f"Connecting to FC MAVLink: {self.connection_str}")
             # Use FC_BAUD if it's a serial connection
             self._mav = mavutil.mavlink_connection(
-                self.connection_str, baud=FC_BAUD, dialect="ardupilotmega"
+                self.connection_str, dialect="ardupilotmega"
             )
         except Exception as exc:
             logging.error(f"MAVLink Connection failed: {exc}")
@@ -174,25 +179,31 @@ class MavlinkReader(threading.Thread):
         while not self._stop_event.is_set():
             try:
                 msg = mav.recv_match(
-                    type=["DISTANCE_SENSOR", "RANGEFINDER", "ATTITUDE"],
+                    type=["ATTITUDE", "DISTANCE_SENSOR", "RANGEFINDER"],
                     blocking=True,
                     timeout=MAVLINK_TIMEOUT,
                 )
+                if msg.get_type() == "BAD_DATA":
+                    continue
                 if msg is None:
+                    print("msg is None")
                     continue
 
                 if msg.get_type() == "ATTITUDE":
-                    self.state.update(pitch=float(msg.pitch), roll=float(msg.roll))
+                    self.state.update(pitch=float(msg.pitch), roll=float(msg.roll), yaw=float(msg.yaw) if msg.yaw is not None else float("nan"))
+                    print("pitch: ",msg.pitch,"     ", "roll: ", msg.roll, "     ", "yaw: ", msg.yaw)
 
                 elif msg.get_type() == "DISTANCE_SENSOR":
                     dist = float(msg.current_distance) / 100.0
                     sensor_id = getattr(msg, "id", 0)
                     if sensor_id != 1:
                         self.state.update(downward_range=dist)
+                    print("downward_range: ",dist)
 
                 elif msg.get_type() == "RANGEFINDER":
                     dist = float(msg.distance)
                     self.state.update(downward_range=dist)
+                    print("downward_range: ",dist)
 
             except Exception as exc:
                 continue
@@ -363,22 +374,39 @@ def handle_client(
     try:
         if conn.recv(1) == b"C":
             # Wait until pitch is within tolerance of level before capturing.
+            """
             while True:
-                downward_range, pitch, roll = telemetry_state.get()
+                downward_range, pitch, roll, yaw = telemetry_state.get()
                 if not math.isnan(pitch) and abs(pitch) <= PITCH_LEVEL_TOLERANCE_RAD:
                     # Wait for roll to be within tolerance of level as well
                     if not math.isnan(roll) and abs(roll) <= ROLL_LEVEL_TOLERANCE_RAD:
                         break
                 # Update at ~50 Hz while waiting for level
                 time.sleep(0.02)
+            """
+            downward_range, pitch, roll, yaw = telemetry_state.get()
+            print(
+                "downward_range: ",
+                downward_range,
+                "     ",
+                "pitch: ",
+                pitch,
+                "     ",
+                "roll: ",
+                roll,
+                "     ",
+                "yaw: ",
+                yaw,
+            )
             jpeg_bytes_ardu = camera2.capture_payloads()
             jpeg_bytes, depth_bytes, center_depth_m = camera.capture_payloads()
             header = struct.pack(
-                "!ffffQQQ",
+                "!fffffQQQ",
                 float(downward_range),
                 float(center_depth_m),
                 float(pitch),
                 float(roll),
+                float(yaw),
                 len(jpeg_bytes),
                 len(depth_bytes),
                 len(jpeg_bytes_ardu),

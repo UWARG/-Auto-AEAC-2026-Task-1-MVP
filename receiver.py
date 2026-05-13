@@ -666,7 +666,7 @@ class ReceiverApp:
     ) -> Tuple[float, float, float, float, Image.Image, Image.Image, np.ndarray]:
         """
         Connects to the transmitter, sends a capture command, and receives:
-        - downward range (float32), center depth (float32), pitch (float32 rad), roll (float32 rad)
+        - downward range (float32), center depth (float32), pitch/roll/yaw (float32 rad)
         - RGB JPEG length (uint64), depth PNG length (uint64)
         - JPEG image bytes, 16-bit PNG depth bytes
         Returns (downward_range_m, center_depth_m, pitch_rad, roll_rad, PIL.Image, depth_map_mm).
@@ -679,10 +679,10 @@ class ReceiverApp:
             # Send 1-byte capture command
             sock.sendall(b"C")
 
-            header = self._recv_exact(sock, 40)
-            if len(header) != 40:
+            header = self._recv_exact(sock, 44)
+            if len(header) != 44:
                 raise RuntimeError(
-                    f"Incomplete header received (expected 40 bytes, got {len(header)})"
+                    f"Incomplete header received (expected 44 bytes, got {len(header)})"
                 )
 
             (
@@ -690,10 +690,11 @@ class ReceiverApp:
                 center_depth,
                 pitch,
                 roll,
+                _yaw,
                 image_length,
                 depth_length,
                 ardu_image_length,
-            ) = struct.unpack("!ffffQQQ", header)
+            ) = struct.unpack("!fffffQQQ", header)
 
             if image_length == 0:
                 raise RuntimeError("Transmitter reported zero-length image from oak-d")

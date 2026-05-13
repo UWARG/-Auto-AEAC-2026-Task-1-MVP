@@ -26,6 +26,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Install frontend with:
+
+```bash
+cd groundside/frontend
+pnpm install
+```
+
 ## Dependencies
 
 The project uses these third-party Python packages:
