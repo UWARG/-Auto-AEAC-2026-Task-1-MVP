@@ -20,11 +20,6 @@ export function ImagePopup({
   onClose, onMouseDown, onMouseMove, onMouseUp, onClick,
   onContextMenu,
 }: Props) {
-  if (popup?.imageType === "downward" && !popup?.green){
-    console.error("Cannot set reference for downard camera");
-    onClose();
-    return null;
-  } 
   if (!popup) return null;
 
   return (
@@ -36,7 +31,11 @@ export function ImagePopup({
         <div className="flex items-center gap-4">
           <span className="font-semibold capitalize">{popup.imageType} camera</span>
           <span className="text-zinc-400 text-xs">
-            {!popup.green
+            {popup.imageType === "downward"
+              ? !popup.red
+                ? "Click to place red crosshair"
+                : "Red crosshair placed"
+              : !popup.green
               ? "Click to place green crosshair"
               : !popup.red
               ? "Click to place red crosshair"

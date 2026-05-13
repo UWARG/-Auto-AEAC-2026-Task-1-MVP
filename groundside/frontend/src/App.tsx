@@ -15,9 +15,9 @@ function App() {
   const [savedAnnotation, setSavedAnnotation] = useState<SavedAnnotation>(null);
   const [outputPending, setOutputPending] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const submittingRef = useRef(false);
 
 
   const colourRef = useRef<HTMLInputElement>(null);
@@ -75,6 +75,10 @@ function App() {
       const data = await res.json();
       const rows: Capture[] = Array.isArray(data) ? data : [];
       setCaptures(rows);
+      setSelectedId((prev) => {
+        if (prev && rows.some((row) => row.id === prev)) return prev;
+        return rows[0]?.id ?? null;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load captures");
     } finally {
@@ -111,7 +115,33 @@ function App() {
     const p = popupRef.current;
     if (!p) return;
     console.log("closing popup", p);
-    setSavedAnnotation({ green: p.green, red: p.red, imageType: p.imageType });
+    setSavedAnnotation((prev) => {
+      if (p.imageType === "downward") {
+        const nextGreen = prev?.green ?? null;
+        const nextRed =
+          p.red ??
+          (prev?.red?.on_ground ? null : (prev?.red ?? null));
+        const nextType: "forward" | "downward" | null =
+          nextRed
+            ? (nextRed.on_ground ? "downward" : "forward")
+            : nextGreen
+            ? "forward"
+            : null;
+        return { green: nextGreen, red: nextRed, imageType: nextType };
+      }
+
+      const nextGreen = p.green;
+      const nextRed =
+        p.red ??
+        (prev?.red?.on_ground ? (prev?.red ?? null) : null);
+      const nextType: "forward" | "downward" | null =
+        nextRed
+          ? (nextRed.on_ground ? "downward" : "forward")
+          : nextGreen
+          ? "forward"
+          : null;
+      return { green: nextGreen, red: nextRed, imageType: nextType };
+    });
     setTimeout(() => colourRef.current?.focus(), 50);
     setPopup(null);
   }, []);
@@ -148,18 +178,19 @@ function App() {
   }, [handleFetchImages, handleClosePopup]);
 
   function handleOpenPopup(url: string, imageType: "forward" | "downward") {
-    const object: PopupState = { url, imageType, green: savedAnnotation?.green??null, red: savedAnnotation?.red??null };
-    if (imageType === "forward" && object.green?.on_ground){
-      object.green=null;
-    }
-    if (imageType==="forward" && object.red?.on_ground){
-      object.red=null;
-    }
-    if (imageType==="downward" && !object.green?.on_ground){
-      object.green=null;
-    }
-    if (imageType==="downward" && !object.red?.on_ground){
-      object.red=null;
+    const object: PopupState = { url, imageType, green: null, red: null };
+    if (imageType === "forward") {
+      if (savedAnnotation?.green && !savedAnnotation.green.on_ground) {
+        object.green = savedAnnotation.green;
+      }
+      if (savedAnnotation?.red && !savedAnnotation.red.on_ground) {
+        object.red = savedAnnotation.red;
+      }
+    } else {
+      // Downward popup never shows/edits reference point (green).
+      if (savedAnnotation?.red?.on_ground) {
+        object.red = savedAnnotation.red;
+      }
     }
     console.log(object);
     setPopup(object);
@@ -183,9 +214,13 @@ function App() {
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     setPopup((p) => {
       if (!p) return p;
-      if (!p.green) {
+      if (!p.green && p.imageType === "forward") {
         console.log("setting green", x,y);
-        return { ...p, green: { x, y, on_ground: p.imageType === "downward" } };
+        return { ...p, green: { x, y, on_ground: false } };
+      }
+      if (!p.green && p.imageType === "downward") {
+        // Cannot place reference on Arducam; require existing forward reference first.
+        if (!savedAnnotation?.green || savedAnnotation.green.on_ground) return p;
       }
       if (!p.red){
         console.log("setting red", x,y);
@@ -233,7 +268,8 @@ function App() {
 
   async function handleSubmit() {
     try {
-      setIsSubmitting(true);
+      if (submittingRef.current) return;
+      submittingRef.current = true;
       setError("");
       if (!savedAnnotation?.green || !savedAnnotation?.red || !savedAnnotation?.imageType) {
         throw new Error("Select both target and reference points first");
@@ -285,9 +321,8 @@ function App() {
         throw new Error(data?.message ?? "Failed to save capture");
       }
       const data = await res.json();
-      const imageB64 = savedAnnotation.red.on_ground
-        ? data.ardu_image
-        : data.oakd_image;
+      const imageB64Oakd = data.oakd_image;
+      const imageB64Ardu = data.ardu_image;
       const createdCapture: Capture = {
         id:data.id,
         time:new Date().toISOString(),
@@ -295,7 +330,8 @@ function App() {
         direction:savedAnnotation?.red?.on_ground ? "D" : "F",
         reference:form.reference,
         desc:data.desc ?? (descParts.length > 0 ? descParts.join(" | ") : null),
-        imageUrl:imageB64 ? `data:image/jpeg;base64,${imageB64}` : imagePair?.forwardUrl ?? null,
+        imageUrl1:imageB64Oakd ? `data:image/jpeg;base64,${imageB64Oakd}` : imagePair?.forwardUrl ?? null,
+        imageUrl2:imageB64Ardu ? `data:image/jpeg;base64,${imageB64Ardu}` : imagePair?.downwardUrl ?? null,
         green:savedAnnotation?.green ?? null,
         red:savedAnnotation?.red ?? null,
       };
@@ -313,7 +349,7 @@ function App() {
       setError(err instanceof Error ? err.message : "Failed to save capture");
       setOutputPending(false);
     } finally {
-      setIsSubmitting(false);
+      submittingRef.current = false;
     }
   }
 

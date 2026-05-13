@@ -27,7 +27,7 @@ export function CaptureHistory({ captures, selectedId, onSelect, isLoading, sele
             ) : captures.length === 0 ? (
               <p className="text-sm text-zinc-400 px-2 py-2">No captures yet.</p>
             ) : (
-              selectedId ? captures.map((capture) => (
+              captures.map((capture) => (
                 <div
                   key={capture.id}
                   onClick={() => onSelect(capture.id)}
@@ -99,7 +99,7 @@ export function CaptureHistory({ captures, selectedId, onSelect, isLoading, sele
                     </button>
                   </div>
                 </div>
-              )) : null
+              ))
             )}
           </div>
         </div>
@@ -130,14 +130,15 @@ export function CaptureHistory({ captures, selectedId, onSelect, isLoading, sele
                     minHeight: 0,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    justifyContent: "space-between",
                     overflow: "hidden",
+                    gap: "12px",
                   }}
                 >
-                  <div style={{ position: "relative", display: "inline-block", maxWidth: "100%", maxHeight: "100%" }}>
+                  <div style={{ position: "relative", display: "inline-block", maxWidth: "49%", maxHeight: "100%" }}>
                     <img
-                      src={selectedCapture.imageUrl ?? "/warg.jpg"}
-                      alt="Capture"
+                      src={selectedCapture.imageUrl1 ?? "/warg.jpg"}
+                      alt="OAK-D"
                       style={{
                         display: "block",
                         maxWidth: "100%",
@@ -146,8 +147,24 @@ export function CaptureHistory({ captures, selectedId, onSelect, isLoading, sele
                       }}
                     />
                     <AnnotationOverlay
-                      green={selectedCapture.green}
-                      red={selectedCapture.red}
+                      green={selectedCapture.green && !selectedCapture.green.on_ground ? selectedCapture.green : null}
+                      red={selectedCapture.red && !selectedCapture.red.on_ground ? selectedCapture.red : null}
+                    />
+                  </div>
+                  <div style={{ position: "relative", display: "inline-block", maxWidth: "49%", maxHeight: "100%" }}>
+                    <img
+                      src={selectedCapture.imageUrl2 ?? "/warg.jpg"}
+                      alt="Arducam"
+                      style={{
+                        display: "block",
+                        maxWidth: "100%",
+                        maxHeight: "300px",
+                        borderRadius: "6px",
+                      }}
+                    />
+                    <AnnotationOverlay
+                      green={selectedCapture.green && selectedCapture.green.on_ground ? selectedCapture.green : null}
+                      red={selectedCapture.red && selectedCapture.red.on_ground ? selectedCapture.red : null}
                     />
                   </div>
                 </div>

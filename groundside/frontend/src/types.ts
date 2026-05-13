@@ -7,7 +7,8 @@ export type Capture = {
   direction: string | null;
   reference: string | null;
   desc: string | null;
-  imageUrl: string | null;
+  imageUrl1: string | null;
+  imageUrl2: string | null;
   green: Point | null;
   red: Point | null;
 };

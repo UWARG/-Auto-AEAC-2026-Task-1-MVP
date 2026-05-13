@@ -490,6 +490,29 @@ def save_db(data):
         with open(DB_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=3)
 
+
+def _to_iso_time(raw: Any) -> str:
+    text = str(raw or "").strip()
+    if not text:
+        return datetime.now(timezone.utc).isoformat()
+    try:
+        dt = datetime.strptime(text, "%Y%m%d_%H%M%S")
+        return dt.replace(tzinfo=timezone.utc).isoformat()
+    except Exception:
+        return text
+
+
+def _file_to_data_url(path_str: Any) -> Optional[str]:
+    file_path = str(path_str or "").strip()
+    if not file_path:
+        return None
+    try:
+        with open(file_path, "rb") as f:
+            raw = f.read()
+        return f"data:image/jpeg;base64,{base64.b64encode(raw).decode()}"
+    except Exception:
+        return None
+
 @app.route("/api/ackme")
 def ack():
     return jsonify({"message": "test"})
@@ -503,15 +526,25 @@ def list_captures():
     for cap in captures:
         if not isinstance(cap, dict):
             continue
+        direction = cap.get("direction")
+        oakd_url = _file_to_data_url(cap.get("oakd_name"))
+        ardu_url = _file_to_data_url(cap.get("ardufile_name"))
+        image_path_url = (
+            ardu_url
+            if direction == "D"
+            else oakd_url
+        ) or oakd_url or ardu_url
         rows.append(
             {
                 "id": cap.get("id"),
-                "time": cap.get("time"),
+                "time": _to_iso_time(cap.get("time")),
                 "colour": None,
-                "direction": cap.get("direction"),
+                "direction": direction,
                 "reference": None,
                 "desc": cap.get("desc"),
-                "imageUrl": None,
+                "imageUrl": image_path_url,
+                "imageUrl1": oakd_url,
+                "imageUrl2": ardu_url,
                 "green": None,
                 "red": None,
             }
