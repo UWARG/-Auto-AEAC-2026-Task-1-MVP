@@ -549,9 +549,9 @@ def ack():
 @app.route("/api/captures", methods=["GET"])
 def list_captures():
     db = load_db()
-    captures = db.get("captures", [])
+    captures: list[dict[str, Any]] = db.get("captures", [])
     rows = []
-    for cap in reversed(captures):
+    for cap in reversed[dict[str, Any]](captures):
         if not isinstance(cap, dict):
             continue
         direction = cap.get("direction")
