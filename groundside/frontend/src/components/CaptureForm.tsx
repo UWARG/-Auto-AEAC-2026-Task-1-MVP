@@ -19,14 +19,14 @@ type Props = {
   onOpenPopup: (url: string, imageType: "forward" | "downward") => void;
   forwardGreen: Point | null;
   forwardRed: Point | null;
-  downwardGreen: Point | null;
+  downwardRed: Point | null;
 };
 
 export function CaptureForm({
   imagePair, isCapturing, onCapture, form, setForm,
   outputPending, onSubmit, isSubmitting, output,
   colourRef, referenceRef, outputBoxRef, error, onOpenPopup,
-  forwardGreen, forwardRed, downwardGreen,
+  forwardGreen, forwardRed, downwardRed,
 }: Props) {
   return (
     <div className="w-full flex flex-col gap-6" style={{ maxWidth: "48rem", marginLeft: "auto", marginRight: "auto" }}>
@@ -84,7 +84,7 @@ export function CaptureForm({
                 alt="Downward capture"
                 className="w-full rounded-md cursor-pointer object-contain max-h-44 hover:ring-2 hover:ring-blue-300 transition-all"
               />
-              <AnnotationOverlay green={downwardGreen} red={null} />
+              <AnnotationOverlay green={null} red={downwardRed} />
             </div>
           </div>
         </div>

@@ -66,6 +66,10 @@ function App() {
     .filter(Boolean)
     .join(" | ");
 
+  const forwardGreen = savedAnnotation?.green && !savedAnnotation.green.on_ground ? savedAnnotation.green : null;
+  const forwardRed = savedAnnotation?.red && !savedAnnotation.red.on_ground ? savedAnnotation.red : null;
+  const downwardRed = savedAnnotation?.red && savedAnnotation.red.on_ground ? savedAnnotation.red : null;
+
   async function loadCaptures() {
     try {
       setIsLoading(true);
@@ -372,12 +376,11 @@ function App() {
         <CaptureForm
           imagePair={imagePair}
           isCapturing={isCapturing}
+          isSubmitting={submittingRef.current}
           onCapture={() => void handleFetchImages()}
           form={form}
           setForm={setForm}
-          savedAnnotation={savedAnnotation}
           outputPending={outputPending}
-          setOutputPending={setOutputPending}
           onSubmit={() => void handleSubmit()}
           output={output}
           colourRef={colourRef}
@@ -385,6 +388,9 @@ function App() {
           outputBoxRef={outputBoxRef}
           error={error}
           onOpenPopup={handleOpenPopup}
+          forwardGreen={forwardGreen}
+          forwardRed={forwardRed}
+          downwardRed={downwardRed}
         />
 
         <CaptureHistory
