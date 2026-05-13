@@ -1,0 +1,98 @@
+{
+   "captures": [
+      {
+         "downward_range": NaN,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260513_000957.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260513_000957.jpg",
+         "time": "20260513_000957",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260513_000957.npy",
+         "desc": "The target is aaaa, and is located nan meters forward, nan meters down and nan meters right from the reference",
+         "direction": "D",
+         "id": "832e581b-c8eb-4e22-b8c7-9ccf2d8523cf"
+      },
+      {
+         "downward_range": null,
+         "pitch": null,
+         "roll": null,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260513_001222.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260513_001222.jpg",
+         "time": "20260513_001222",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260513_001222.npy",
+         "desc": null,
+         "direction": null,
+         "id": "bcaf00dc-c8cb-4592-894c-e286830b857c"
+      },
+      {
+         "downward_range": null,
+         "pitch": null,
+         "roll": null,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260513_001353.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260513_001353.jpg",
+         "time": "20260513_001353",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260513_001353.npy",
+         "desc": null,
+         "direction": null,
+         "id": "f2d402cb-5910-4398-9e7f-296905484a18"
+      },
+      {
+         "downward_range": null,
+         "pitch": null,
+         "roll": null,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260513_001420.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260513_001420.jpg",
+         "time": "20260513_001420",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260513_001420.npy",
+         "desc": null,
+         "direction": null,
+         "id": "0ca97cbe-def1-491d-826a-4014dea239e1"
+      },
+      {
+         "downward_range": null,
+         "pitch": null,
+         "roll": null,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260513_001437.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260513_001437.jpg",
+         "time": "20260513_001437",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260513_001437.npy",
+         "desc": null,
+         "direction": null,
+         "id": "120541ca-4b23-4b84-89cd-0ab208564309"
+      },
+      {
+         "downward_range": null,
+         "pitch": null,
+         "roll": null,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260513_001909.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260513_001909.jpg",
+         "time": "20260513_001909",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260513_001909.npy",
+         "desc": "The target is aaaa, and is located N/A off the ground and 1.77 m to the right of the Colour: aaaa | Direction: F | Reference Point: aaaa.",
+         "direction": "F",
+         "id": "8dbdab63-8309-4b18-b98d-8e582ccd9adc"
+      },
+      {
+         "downward_range": 0.4099999964237213,
+         "pitch": 0.012414079159498215,
+         "roll": -0.012698227539658546,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260513_135042.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260513_135042.jpg",
+         "time": "20260513_135042",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260513_135042.npy",
+         "desc": "The target is aaa, and is located 0.54 m off the ground and 0.90 m to the right of the Colour: aaa | Direction: F | Reference Point: aaaa.",
+         "direction": "F",
+         "id": "d2eb46de-6744-45fd-b3a8-f55c37979af2"
+      },
+      {
+         "downward_range": 0.4099999964237213,
+         "pitch": 0.012531019747257233,
+         "roll": -0.012314505875110626,
+         "ardufile_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\arducam_image_20260513_135112.jpg",
+         "oakd_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\oakd_image_20260513_135112.jpg",
+         "time": "20260513_135112",
+         "depth_map_name": "C:\\Users\\light\\Desktop\\WARG2\\Auto-AEAC-2026-Task-1-MVP\\groundside\\backend\\images\\depth_map_20260513_135112.npy",
+         "desc": "The target is RED, and is located -0.02 m off the ground and 1.12 m to the right of the Colour: RED | Direction: F | Reference Point: wall.",
+         "direction": "F",
+         "id": "2a9882f1-34b4-47e5-ae10-6e63d02854c4"
+      }
+   ]
+}

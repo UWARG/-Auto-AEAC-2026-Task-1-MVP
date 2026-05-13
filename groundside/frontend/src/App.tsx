@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Capture, ImagePair, PopupState, SavedAnnotation } from "./types";
+import type { Capture, ImagePair, PopupState, SavedAnnotation, Telemetry } from "./types";
 import { ImagePopup } from "./components/ImagePopup";
 import { CaptureForm } from "./components/CaptureForm";
 import { CaptureHistory } from "./components/CaptureHistory";
@@ -8,6 +8,7 @@ function App() {
   const [captures, setCaptures] = useState<Capture[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [imagePair, setImagePair] = useState<ImagePair>(null);
+  const [telemetry, setTelemetry] = useState<Telemetry>({ roll: null, pitch: null, yaw: null, downwardRange: null });
   const [popup, setPopup] = useState<PopupState>(null);
   const [zoom, setZoom] = useState(1.5);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -101,11 +102,18 @@ function App() {
     setSavedAnnotation(null);
     setOutputPending(false);
     setImagePair(null);
+    setTelemetry({ roll: null, pitch: null, yaw: null, downwardRange: null });
     try {
       const res = await fetch("/api/capture_image", { method: "POST" });
       if (!res.ok) throw new Error("Failed to capture images");
       const data = await res.json();
       setImagePair({ forwardUrl: `data:image/jpeg;base64,${data.oakd_image}`, downwardUrl: `data:image/jpeg;base64,${data.arducam_image}`});
+      setTelemetry({
+        roll: typeof data.roll === "number" ? data.roll : null,
+        pitch: typeof data.pitch === "number" ? data.pitch : null,
+        yaw: typeof data.yaw === "number" ? data.yaw : null,
+        downwardRange: typeof data.downward_range === "number" ? data.downward_range : null,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to capture images");
       setImagePair({ forwardUrl: "/warg.jpg", downwardUrl: "/warg.jpg" });
@@ -341,6 +349,10 @@ function App() {
         imageUrl2:imageB64Ardu ? `data:image/jpeg;base64,${imageB64Ardu}` : imagePair?.downwardUrl ?? null,
         green:savedAnnotation?.green ?? null,
         red:savedAnnotation?.red ?? null,
+        roll: telemetry.roll,
+        pitch: telemetry.pitch,
+        yaw: telemetry.yaw,
+        downwardRange: telemetry.downwardRange,
       };
       setCaptures((current) => [createdCapture, ...current]);
       setSelectedId(createdCapture.id);
@@ -350,6 +362,7 @@ function App() {
       //setSelectedId(created.id);
       setForm({ colour: "", reference: "" });
       setImagePair(null);
+      setTelemetry({ roll: null, pitch: null, yaw: null, downwardRange: null });
       setSavedAnnotation(null);
       setOutputPending(false);
     } catch (err) {
@@ -378,6 +391,7 @@ function App() {
       <div className="max-w-5xl w-full px-6 py-6 flex flex-col gap-6">
         <CaptureForm
           imagePair={imagePair}
+          telemetry={telemetry}
           isCapturing={isCapturing}
           isSubmitting={submittingRef.current}
           onCapture={() => void handleFetchImages()}

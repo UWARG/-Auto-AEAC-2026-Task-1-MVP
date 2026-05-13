@@ -11,6 +11,18 @@ export type Capture = {
   imageUrl2: string | null;
   green: Point | null;
   red: Point | null;
+  // Telemetry captured alongside the image pair.
+  roll: number | null; // radians
+  pitch: number | null; // radians
+  yaw: number | null; // radians
+  downwardRange: number | null; // metres
+};
+
+export type Telemetry = {
+  roll: number | null;
+  pitch: number | null;
+  yaw: number | null;
+  downwardRange: number | null;
 };
 
 export type ImagePair = { forwardUrl: string; downwardUrl: string } | null;

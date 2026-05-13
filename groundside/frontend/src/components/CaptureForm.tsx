@@ -1,9 +1,10 @@
 import type { RefObject } from "react";
-import type { ImagePair, Point } from "../types";
+import type { ImagePair, Point, Telemetry } from "../types";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 
 type Props = {
   imagePair: ImagePair;
+  telemetry: Telemetry;
   isCapturing: boolean;
   onCapture: () => void;
   form: { colour: string; reference: string };
@@ -22,8 +23,20 @@ type Props = {
   downwardRed: Point | null;
 };
 
+const RAD_TO_DEG = 180 / Math.PI;
+
+function formatAngle(rad: number | null): string {
+  if (rad === null || Number.isNaN(rad)) return "N/A";
+  return `${(rad * RAD_TO_DEG).toFixed(1)}°`;
+}
+
+function formatMetres(m: number | null): string {
+  if (m === null || Number.isNaN(m)) return "N/A";
+  return `${m.toFixed(2)} m`;
+}
+
 export function CaptureForm({
-  imagePair, isCapturing, onCapture, form, setForm,
+  imagePair, telemetry, isCapturing, onCapture, form, setForm,
   outputPending, onSubmit, isSubmitting, output,
   colourRef, referenceRef, outputBoxRef, error, onOpenPopup,
   forwardGreen, forwardRed, downwardRed,
@@ -55,6 +68,28 @@ export function CaptureForm({
           </kbd>
         </p>
       </div>
+
+      {/* Telemetry strip — shown whenever we have an image pair from a capture. */}
+      {imagePair && (
+        <div className="flex justify-center gap-6 text-xs text-zinc-600 -mb-2">
+          <span>
+            <span className="font-semibold text-zinc-500">Roll:</span>{" "}
+            <span className="font-mono text-zinc-900">{formatAngle(telemetry.roll)}</span>
+          </span>
+          <span>
+            <span className="font-semibold text-zinc-500">Pitch:</span>{" "}
+            <span className="font-mono text-zinc-900">{formatAngle(telemetry.pitch)}</span>
+          </span>
+          <span>
+            <span className="font-semibold text-zinc-500">Yaw:</span>{" "}
+            <span className="font-mono text-zinc-900">{formatAngle(telemetry.yaw)}</span>
+          </span>
+          <span>
+            <span className="font-semibold text-zinc-500">Downward:</span>{" "}
+            <span className="font-mono text-zinc-900">{formatMetres(telemetry.downwardRange)}</span>
+          </span>
+        </div>
+      )}
 
       {/* Images */}
       {imagePair ? (
@@ -91,12 +126,9 @@ export function CaptureForm({
       ) : (
         <div className="flex justify-center">
           <img
-            src="/api/stream"
-            alt="Live feed"
+            src="/warg.jpg"
+            alt="Live feed placeholder"
             className="max-h-52 w-auto rounded-md object-contain"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "/warg.jpg";
-            }}
           />
         </div>
       )}
