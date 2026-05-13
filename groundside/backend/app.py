@@ -746,4 +746,4 @@ def delete_by_id(pk):
     return jsonify({"message":f"successfully popped {popped}"}),200
         
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, threaded=True, port=5001)

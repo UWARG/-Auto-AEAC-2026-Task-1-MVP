@@ -63,7 +63,7 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 1
 fi
 
-printf '%s[info]%s backend:  http://127.0.0.1:5000\n' "$YELLOW" "$RESET"
+printf '%s[info]%s backend:  http://127.0.0.1:5001\n' "$YELLOW" "$RESET"
 printf '%s[info]%s frontend: http://127.0.0.1:5173\n' "$YELLOW" "$RESET"
 printf '%s[info]%s press Ctrl+C to stop both services\n' "$YELLOW" "$RESET"
 
@@ -97,4 +97,6 @@ BACKEND_PID=$!
 ) &
 FRONTEND_PID=$!
 
-wait -n "$BACKEND_PID" "$FRONTEND_PID"
+while kill -0 "$BACKEND_PID" 2>/dev/null && kill -0 "$FRONTEND_PID" 2>/dev/null; do
+  sleep 1
+done
