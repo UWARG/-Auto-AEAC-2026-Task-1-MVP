@@ -36,8 +36,8 @@ TARGET_CROSSHAIR_COLOUR = "lime"  # green, for "Select target center"
 REFERENCE_CROSSHAIR_COLOUR = "deepskyblue"  # blue, for "Select reference point"
 CROSSHAIR_SIZE = 8  # half-length of each crosshair arm in pixels
 
-OAKD_FORWARD_OFFSET=0.1 #meters
-ARDUCAM_RIGHT_OFFSET=0.5 #meters
+OAKD_FORWARD_OFFSET=0.25 #meters
+ARDUCAM_RIGHT_OFFSET=0.75 #meters
 
 # =========================
 # Configuration
@@ -53,8 +53,8 @@ SOCKET_TIMEOUT = 10.0  # seconds
 CAMERA_HFOV_RAD = math.radians(80)
 CAMERA_VFOV_RAD = math.radians(55)
 
-ARDU_CAMERA_VFOV_RAD=math.radians(55)
-ARDU_CAMERA_HFOV_RAD=math.radians(80)
+ARDU_CAMERA_VFOV_RAD=math.radians(46.5)
+ARDU_CAMERA_HFOV_RAD=math.radians(70)
 
 
 # Fisheye correction (only near the edges). Correction = 1 + this * (angle / edge_angle)^2.
@@ -411,7 +411,7 @@ def compute_cross_camera_offset(x_tar:int,y_tar:int,x_ref:int,y_ref:int,downward
     H=oakd_image.height
     a_horizontal=((rx-W/2)/(W/2))*half_hfov
     a_vertical=((ry-H/2)/(H/2))*half_vfov
-    ref_x=ref_depth-OAKD_FORWARD_OFFSET
+    ref_x=ref_depth+OAKD_FORWARD_OFFSET
     ref_y=ref_depth*math.tan(a_horizontal)
     ref_z=ref_depth*math.tan(a_vertical)
     #for arducam ground target
