@@ -339,7 +339,15 @@ class Arducam:
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         # current_val = self.cap.get(cv2.CAP_PROP_BRIGHTNESS)
         # print(f"Current Brightness: {current_val}")
-        self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.01)
+        time.sleep(1)
+        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1) 
+        # 2. Lower exposure (Many webcams use negative log scales: e.g., -5, -6, -7)
+        self.cap.set(cv2.CAP_PROP_EXPOSURE, -6)
+
+        # 3. Drop gain and brightness to near-zero or minimum
+        self.cap.set(cv2.CAP_PROP_GAIN, 0)
+        self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0) 
+        # self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.01)
         self.thread = threading.Thread(target=self._capture_loop, daemon=True)
         self.thread.start()
 
