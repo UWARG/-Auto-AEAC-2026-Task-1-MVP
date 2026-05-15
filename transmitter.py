@@ -41,7 +41,7 @@ ARDU_FRAME_WAIT_TIMEOUT_S = 2.0
 # For serial (e.g. Raspberry Pi GPIO): "/dev/ttyAMA0" or "/dev/serial0"
 # For UDP (e.g. SITL or network): "udpout:IP_ADDRESS:PORT"
 FC_ADDR = "/dev/ttyAMA0"
-FC_BAUD = 57600
+#FC_BAUD = 57600
 
 # How long to wait for MAVLink messages before giving up (seconds)
 MAVLINK_TIMEOUT = 1.0
@@ -154,7 +154,7 @@ class MavlinkReader(threading.Thread):
             logging.info(f"Connecting to FC MAVLink: {self.connection_str}")
             # Use FC_BAUD if it's a serial connection
             self._mav = mavutil.mavlink_connection(
-                self.connection_str, baud=FC_BAUD, dialect="ardupilotmega"
+                self.connection_str, dialect="ardupilotmega"
             )
         except Exception as exc:
             logging.error(f"MAVLink Connection failed: {exc}")
@@ -498,34 +498,33 @@ class Arducam:
             self._frame_ready.wait(timeout=ARDU_FRAME_WAIT_TIMEOUT_S)
 
         with self.lock:
-            frame = None if self.last_frame is None else self.last_frame.copy()
-
-        if frame is None:
-            frame = self._build_fallback_frame()
-
-        jpeg_bytes = self._encode_jpeg(frame)
-        if not jpeg_bytes:
-            jpeg_bytes = self._encode_jpeg(self._build_fallback_frame())
-        if not jpeg_bytes:
-            logging.error("CSI fallback JPEG encoding failed; returning empty payload")
+            if self.last_frame is None:
+                return b""
+            frame=self.last_frame.copy()
+        # USB drivers often ignore CAP_PROP size; resize so JPEG matches OAK preview (FRAME_*).
+        if frame.shape[1] != self.width or frame.shape[0] != self.height:
+            interp = (
+                cv2.INTER_AREA
+                if frame.shape[1] > self.width or frame.shape[0] > self.height
+                else cv2.INTER_LINEAR
+            )
+            frame = cv2.resize(
+                frame, (self.width, self.height), interpolation=interp
+            )
+        result,jpeg=cv2.imencode(".jpg",frame,[int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY])
+        if not result:
             return b""
         logging.info("Prepared CSI JPEG payload (%s bytes)", len(jpeg_bytes))
         return jpeg_bytes
 
-def handle_client(conn, addr, camera: OakCamera,camera2:Arducam, telemetry_state: TelemetryState):
+def handle_client(conn, addr, downward_range,center_depth_m, pitch, roll, camera: OakCamera,camera2:Arducam, telemetry_state: TelemetryState):
     try:
-        logging.info("Client connected from %s", addr)
-        try:
-            request_code = conn.recv(1)
-        except (ConnectionResetError, BrokenPipeError, OSError) as exc:
-            logging.warning("Client %s disconnected before sending request: %s", addr, exc)
-            return
-        logging.info("Received client request code %r", request_code)
-        if request_code == b"C":
-            logging.info("Capture request acknowledged; waiting for vehicle to level")
+        if conn.recv(1) == b"C":
+            print("Capturing image")
             # Wait until pitch is within tolerance of level before capturing.
-            wait_logged = False
+            """
             while True:
+                print("Waiting for pitch to be within tolerance of level")
                 downward_range, pitch, roll = telemetry_state.get()
                 if not math.isnan(pitch) and abs(pitch) <= PITCH_LEVEL_TOLERANCE_RAD:
                     #Wait for roll to be within tolerance of level as well
@@ -536,19 +535,11 @@ def handle_client(conn, addr, camera: OakCamera,camera2:Arducam, telemetry_state
                             roll,
                         )
                         break
-                if not wait_logged:
-                    logging.info(
-                        "Waiting for level attitude; current pitch=%s roll=%s range=%s",
-                        pitch,
-                        roll,
-                        downward_range,
-                    )
-                    wait_logged = True
+                
                 # Update at ~50 Hz while waiting for level
                 time.sleep(0.02)
-            logging.info("Capturing CSI JPEG payload")
-            jpeg_bytes_ardu = camera2.capture_payloads()
-            logging.info("Capturing OAK-D RGB and depth payloads")
+            """
+            jpeg_bytes_ardu=camera2.capture_payloads()
             jpeg_bytes, depth_bytes, center_depth_m = camera.capture_payloads()
             logging.info(
                 "Prepared payloads: oak_rgb=%s bytes, oak_depth=%s bytes, csi=%s bytes, center_depth=%.3f m",
@@ -593,12 +584,13 @@ def handle_client(conn, addr, camera: OakCamera,camera2:Arducam, telemetry_state
 
 def run_server():
     telemetry_state = TelemetryState()
+    downward_range, pitch, roll = telemetry_state.get()
     mav_thread = MavlinkReader(FC_ADDR, telemetry_state)
     mav_thread.start()
     logging.info("MAVLink reader thread started")
     camera = OakCamera(FRAME_WIDTH, FRAME_HEIGHT)
-    logging.info("OAK-D capture thread started")
-    camera_down = Arducam(ARDU_HEIGHT, ARDU_WIDTH)
+    camera_down=Arducam(ARDU_HEIGHT,ARDU_WIDTH)
+    center_depth_m = camera.capture_payloads()[2]
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind((HOST, PORT))
@@ -608,7 +600,7 @@ def run_server():
     try:
         while True:
             conn, addr = server_sock.accept()
-            handle_client(conn, addr, camera,camera_down, telemetry_state)
+            handle_client(conn, addr, downward_range,center_depth_m, pitch, roll, camera,camera_down, telemetry_state)
     except KeyboardInterrupt:
         pass
     finally:
