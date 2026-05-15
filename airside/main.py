@@ -337,9 +337,9 @@ class Arducam:
         self.cap = cv2.VideoCapture(0)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        current_val = self.cap.get(cv2.CAP_PROP_BRIGHTNESS)
-        print(f"Current Brightness: {current_val}")
-        # self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 50)
+        # current_val = self.cap.get(cv2.CAP_PROP_BRIGHTNESS)
+        # print(f"Current Brightness: {current_val}")
+        self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 50)
         self.thread = threading.Thread(target=self._capture_loop, daemon=True)
         self.thread.start()
 
