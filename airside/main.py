@@ -2,6 +2,7 @@ import logging
 import math
 import socket
 import struct
+import sys
 import threading
 import time
 from typing import Any, Optional, Tuple, cast
@@ -28,6 +29,11 @@ DEPTH_PNG_COMPRESSION = 3
 # ArduCam
 ARDU_WIDTH = 640
 ARDU_HEIGHT = 360
+ARDU_DEVICE_INDEX = 0
+ARDU_WARMUP_SECONDS = 1.0
+
+ARDU_MANUAL_EXPOSURE = 20.0
+ARDU_MANUAL_GAIN = 0.0
 
 # Flight Controller Connection Settings
 # For serial (e.g. Raspberry Pi GPIO): "/dev/ttyAMA0" or "/dev/serial0"
@@ -334,22 +340,53 @@ class Arducam:
         self.lock = threading.Lock()
         self.last_frame = None
         self._stop_event = threading.Event()
-        self.cap = cv2.VideoCapture(0)
+        self.cap = self._open_capture()
+        if not self.cap.isOpened():
+            raise RuntimeError(
+                f"Unable to open Arducam video device {ARDU_DEVICE_INDEX}"
+            )
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        # current_val = self.cap.get(cv2.CAP_PROP_BRIGHTNESS)
-        # print(f"Current Brightness: {current_val}")
-        time.sleep(1)
-        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1) 
-        # 2. Lower exposure (Many webcams use negative log scales: e.g., -5, -6, -7)
-        self.cap.set(cv2.CAP_PROP_EXPOSURE, -6)
+        self._configure_manual_profile()
 
-        # 3. Drop gain and brightness to near-zero or minimum
-        self.cap.set(cv2.CAP_PROP_GAIN, 0)
-        self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0) 
-        # self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.01)
+        time.sleep(ARDU_WARMUP_SECONDS)
+
         self.thread = threading.Thread(target=self._capture_loop, daemon=True)
         self.thread.start()
+
+    def _open_capture(self):
+        if sys.platform.startswith("linux") and hasattr(cv2, "CAP_V4L2"):
+            cap = cv2.VideoCapture(ARDU_DEVICE_INDEX, cv2.CAP_V4L2)
+            if cap.isOpened():
+                return cap
+            cap.release()
+            logging.warning(
+                "Unable to open Arducam with V4L2 backend; falling back to default backend"
+            )
+        return cv2.VideoCapture(ARDU_DEVICE_INDEX)
+
+    def _set_capture_property(self, prop_id, value, name):
+        if not self.cap.set(prop_id, value):
+            logging.warning("Arducam backend rejected %s=%s", name, value)
+            return
+
+        actual = self.cap.get(prop_id)
+        logging.info("Arducam %s requested=%s actual=%s", name, value, actual)
+
+    def _configure_manual_profile(self):
+        backend_name = self.cap.getBackendName()
+        logging.info("Arducam backend in use: %s", backend_name)
+
+        if backend_name.upper() != "V4L2":
+            logging.warning(
+                "Skipping manual Arducam profile because backend %s does not use V4L2 exposure semantics",
+                backend_name,
+            )
+            return
+
+        self._set_capture_property(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0, "auto_exposure")
+        self._set_capture_property(cv2.CAP_PROP_EXPOSURE, ARDU_MANUAL_EXPOSURE, "exposure")
+        self._set_capture_property(cv2.CAP_PROP_GAIN, ARDU_MANUAL_GAIN, "gain")
 
     def _capture_loop(self):
         while not self._stop_event.is_set():
