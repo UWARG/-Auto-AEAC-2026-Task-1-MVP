@@ -1,5 +1,6 @@
 import logging
 import math
+import errno
 import socket
 import struct
 import threading
@@ -46,6 +47,24 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+
+def _is_client_disconnect(exc: OSError) -> bool:
+    return isinstance(
+        exc,
+        (
+            BrokenPipeError,
+            ConnectionAbortedError,
+            ConnectionResetError,
+            TimeoutError,
+        ),
+    ) or exc.errno in {
+        errno.EPIPE,
+        errno.ECONNABORTED,
+        errno.ECONNRESET,
+        errno.ENOTCONN,
+        errno.ETIMEDOUT,
+    }
 
 
 class TelemetryState:
@@ -342,9 +361,9 @@ class Arducam:
         # print(f"Current Brightness: {current_val}")
         time.sleep(1)
         self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1) 
-        self.cap.set(cv2.CAP_PROP_EXPOSURE, -4)
+        self.cap.set(cv2.CAP_PROP_EXPOSURE, -5)
         self.cap.set(cv2.CAP_PROP_GAIN, 0)
-        self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0) 
+        self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0)
         # self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.01)
 
         self.thread = threading.Thread(target=self._capture_loop, daemon=True)
@@ -382,7 +401,15 @@ def handle_client(
     conn, addr, camera: OakCamera, camera2: Arducam, telemetry_state: TelemetryState
 ):
     try:
-        if conn.recv(1) == b"C":
+        try:
+            request_code = conn.recv(1)
+        except OSError as exc:
+            if _is_client_disconnect(exc):
+                logging.info("Client %s disconnected before request was read", addr)
+                return
+            raise
+
+        if request_code == b"C":
             # Wait until pitch is within tolerance of level before capturing.
             """
             while True:
@@ -421,7 +448,13 @@ def handle_client(
                 len(depth_bytes),
                 len(jpeg_bytes_ardu),
             )
-            conn.sendall(header + jpeg_bytes + depth_bytes + jpeg_bytes_ardu)
+            try:
+                conn.sendall(header + jpeg_bytes + depth_bytes + jpeg_bytes_ardu)
+            except OSError as exc:
+                if _is_client_disconnect(exc):
+                    logging.info("Client %s disconnected while sending capture", addr)
+                    return
+                raise
     finally:
         conn.close()
 
