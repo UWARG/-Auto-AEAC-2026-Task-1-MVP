@@ -27,8 +27,12 @@ JPEG_QUALITY = 90
 DEPTH_PNG_COMPRESSION = 3
 
 # ArduCam
+ARDU_DEVICE_INDEX = 0
 ARDU_WIDTH = 640
 ARDU_HEIGHT = 360
+ARDU_MANUAL_EXPOSURE = 10
+ARDU_MANUAL_GAIN = 0
+ARDU_BRIGHTNESS = 0
 
 # Flight Controller Connection Settings
 # For serial (e.g. Raspberry Pi GPIO): "/dev/ttyAMA0" or "/dev/serial0"
@@ -353,21 +357,59 @@ class Arducam:
         self.lock = threading.Lock()
         self.last_frame = None
         self._stop_event = threading.Event()
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(ARDU_DEVICE_INDEX, cv2.CAP_V4L2)
+        if not self.cap.isOpened():
+            self.cap.release()
+            self.cap = cv2.VideoCapture(ARDU_DEVICE_INDEX)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
-        # current_val = self.cap.get(cv2.CAP_PROP_BRIGHTNESS)
-        # print(f"Current Brightness: {current_val}")
         time.sleep(1)
-        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1) 
-        self.cap.set(cv2.CAP_PROP_EXPOSURE, -50)
-        self.cap.set(cv2.CAP_PROP_GAIN, 0)
-        self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0)
-        # self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.01)
+        self._configure_controls()
 
         self.thread = threading.Thread(target=self._capture_loop, daemon=True)
         self.thread.start()
+
+    def _set_control(self, prop: int, value: float, label: str) -> None:
+        ok = self.cap.set(prop, value)
+        actual = self.cap.get(prop)
+        logging.info(
+            "Arducam %s request=%s applied=%s actual=%s",
+            label,
+            value,
+            ok,
+            actual,
+        )
+
+    def _configure_controls(self) -> None:
+        try:
+            logging.info("Arducam backend: %s", self.cap.getBackendName())
+        except Exception:
+            logging.debug("Could not query Arducam backend name", exc_info=True)
+
+        for auto_exposure_value in (0.25, 1.0):
+            ok = self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, auto_exposure_value)
+            actual = self.cap.get(cv2.CAP_PROP_AUTO_EXPOSURE)
+            logging.info(
+                "Arducam auto exposure request=%s applied=%s actual=%s",
+                auto_exposure_value,
+                ok,
+                actual,
+            )
+            if math.isfinite(actual) and abs(actual - auto_exposure_value) < 0.1:
+                break
+
+        self._set_control(
+            cv2.CAP_PROP_EXPOSURE,
+            ARDU_MANUAL_EXPOSURE,
+            "exposure",
+        )
+        self._set_control(cv2.CAP_PROP_GAIN, ARDU_MANUAL_GAIN, "gain")
+        self._set_control(
+            cv2.CAP_PROP_BRIGHTNESS,
+            ARDU_BRIGHTNESS,
+            "brightness",
+        )
 
     def _capture_loop(self):
         while not self._stop_event.is_set():
