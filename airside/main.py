@@ -361,7 +361,7 @@ class Arducam:
         # print(f"Current Brightness: {current_val}")
         time.sleep(1)
         self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1) 
-        self.cap.set(cv2.CAP_PROP_EXPOSURE, -20)
+        self.cap.set(cv2.CAP_PROP_EXPOSURE, -50)
         self.cap.set(cv2.CAP_PROP_GAIN, 0)
         self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0)
         # self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.01)
