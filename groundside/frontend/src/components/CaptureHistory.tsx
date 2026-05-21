@@ -32,6 +32,9 @@ export function CaptureHistory({ captures, selectedId, onSelect, isLoading, sele
       <div className="mb-4">
         <button className="bg-blue-500 text-white px-4 py-2 rounded-md"
         onClick={async() => {
+          if (isSaving){
+            return;
+          }
           setIsSaving(true);
           try {
             const res= await saveToTxtFile();
