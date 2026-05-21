@@ -446,9 +446,17 @@ def write_output(colour: str, ref_desc: str,x_tar:int,y_tar:int,x_ref:int,y_ref:
             lateral_str = f"{abs(lateral):.2f} m to the {direction}"
         else:
             lateral_str = f"to the {direction}"
+        if (yaw<=math.pi/4 and yaw>-math.pi/4):
+                cardinality="south"
+        elif (yaw>math.pi/4 and yaw<=3*math.pi/4):
+            cardinality="west"
+        elif ((yaw>3*math.pi/4 and yaw<=math.pi) or (yaw<-3*math.pi/4 and yaw>=-math.pi)):
+            cardinality="north"
+        elif (yaw<=-math.pi/4 and yaw>=-3*math.pi/4):
+            cardinality="east"
         output = (
             f"The target is {colour}, and is located {downwards_str} off the ground and {lateral_str} "
-            f"of the {ref_desc}."
+            f"of the {ref_desc}  which is on the {cardinality} wall."
         )
     else:
         result=compute_cross_camera_offset(x_tar,y_tar,x_ref,y_ref,downward,target_on_ground,ardu_image,oakd_image,depth_map)
@@ -466,8 +474,8 @@ def write_output(colour: str, ref_desc: str,x_tar:int,y_tar:int,x_ref:int,y_ref:
             elif (yaw<=-math.pi/4 and yaw>=-3*math.pi/4):
                 cardinality="east"
             output=(
-                f"The target is {colour}, and is located {-x:.2f} meters in front of, {z:.2f} meters down"
-                f" and {y:.2f} meters right from the {ref_desc} which is on the {cardinality} wall"
+                f"The target is {colour}, and is located {-x:.2f} meters in front of"
+                f" and {(abs(y)):.2f} meters {"right" if y>0 else "left"} from the {ref_desc} which is on the {cardinality} wall"
             ) 
         app.logger.info("output=%s", output)
     return output

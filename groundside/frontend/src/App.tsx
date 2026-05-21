@@ -58,7 +58,7 @@ function App() {
   const output = [
     form.colour && `Colour: ${form.colour}`,
     direction && `Direction: ${direction}`,
-    form.reference && `Reference Point: ${form.reference}`,
+    form.reference && `${form.reference}`,
     savedAnnotation?.green &&
       `G(${savedAnnotation.green.x.toFixed(1)}, ${savedAnnotation.green.y.toFixed(1)})`,
     savedAnnotation?.red &&
@@ -292,7 +292,7 @@ function App() {
 
 
       const descParts = [
-        form.reference && `Reference Point: ${form.reference}`,
+        form.reference && `${form.reference}`,
       ].filter(Boolean);
 
 

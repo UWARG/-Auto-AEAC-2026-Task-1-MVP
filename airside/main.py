@@ -30,9 +30,9 @@ DEPTH_PNG_COMPRESSION = 3
 ARDU_DEVICE_INDEX = 0
 ARDU_WIDTH = 640
 ARDU_HEIGHT = 360
-ARDU_MANUAL_EXPOSURE = 10 # ================= This one =================
+ARDU_MANUAL_EXPOSURE = -11 # ================= This one =================
 ARDU_MANUAL_GAIN = 0
-ARDU_BRIGHTNESS = 0
+ARDU_BRIGHTNESS = 10
 
 # Flight Controller Connection Settings
 # For serial (e.g. Raspberry Pi GPIO): "/dev/ttyAMA0" or "/dev/serial0"
