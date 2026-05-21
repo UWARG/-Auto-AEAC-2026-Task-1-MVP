@@ -223,7 +223,7 @@ function App() {
       return false;
     }
     try {
-      const res= await fetch("/api/to_txt", {
+      const res= await fetch("/api/save_to_txt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
