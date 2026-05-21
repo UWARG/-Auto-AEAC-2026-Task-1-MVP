@@ -575,7 +575,7 @@ def save_to_txt():
             descriptions.append(text)
     if not descriptions:
         return jsonify({"message": "no descriptions to save"}), 400
-    with open (Path.joinpath((Path(__file__).parent,"Task_1_WARG_targets.txt")),"w") as file:
+    with open (Path.joinpath(Path(__file__).parent,"Task_1_WARG_targets.txt"),"w") as file:
         for item in descriptions:
             file.write(item + "\n")
     return jsonify({"message":"txt file saved"}),200

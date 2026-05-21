@@ -1,0 +1,3 @@
+The target is orange1, and is located 8.60 meters in front of, -0.52 meters down and -0.37 meters right from the Reference Point: ground which is on the south wall
+The target is orange3, and is located 1.25 m off the ground and 2.53 m to the right of the Reference Point: left.
+The target is orange2, and is located 1.47 m off the ground and 2.64 m to the left of the Reference Point: right.
