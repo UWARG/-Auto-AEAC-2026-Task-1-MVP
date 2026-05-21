@@ -567,6 +567,27 @@ def ack():
     return jsonify({"message": "test"})
 
 
+@app.route("/api/save_to_txt", methods=["POST"])
+def save_to_txt():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, list):
+        return jsonify({"message": "payload must be an array of descriptions"}), 400
+    descriptions: list[str] = []
+    for item in payload:
+        if item is None:
+            continue
+        if not isinstance(item, str):
+            return jsonify({"message": "all descriptions must be strings"}), 400
+        text = item.strip()
+        if text:
+            descriptions.append(text)
+    if not descriptions:
+        return jsonify({"message": "no descriptions to save"}), 400
+    with open (Path.joinpath(Path(__file__).parent,"Task_1_WARG_targets.txt"),"w") as file:
+        for item in descriptions:
+            file.write(item + "\n")
+    return jsonify({"message":"txt file saved"}),200
+
 @app.route("/api/captures", methods=["GET"])
 def list_captures():
     db = load_db()

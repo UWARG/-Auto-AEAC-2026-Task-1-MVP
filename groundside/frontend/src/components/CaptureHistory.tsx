@@ -1,6 +1,6 @@
 import type { Capture } from "../types";
 import { AnnotationOverlay } from "./AnnotationOverlay";
-
+import { useState } from "react";
 type Props = {
   captures: Capture[];
   selectedId: string | null;
@@ -8,6 +8,7 @@ type Props = {
   isLoading: boolean;
   selectedCapture: Capture | null;
   onDelete: (id: string) => void;
+  saveToTxtFile: () => Promise<boolean>;
 };
 
 const RAD_TO_DEG = 180 / Math.PI;
@@ -22,10 +23,43 @@ function formatMetres(m: number | null | undefined): string {
   return `${m.toFixed(2)} m`;
 }
 
-export function CaptureHistory({ captures, selectedId, onSelect, isLoading, selectedCapture, onDelete }: Props) {
+export function CaptureHistory({ captures, selectedId, onSelect, isLoading, selectedCapture, onDelete, saveToTxtFile }: Props) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState("");
   return (
     <section className="w-full">
       <h2 className="text-base font-semibold text-zinc-900 mb-4">Capture History</h2>
+      <div className="mb-4">
+        <button className="bg-blue-500 text-white px-4 py-2 rounded-md"
+        onClick={async() => {
+          if (isSaving){
+            return;
+          }
+          setIsSaving(true);
+          try {
+            const res= await saveToTxtFile();
+            if (res){
+              console.log("Txt file saved");
+              setMessage("Txt file saved");
+            } else {
+              console.error("Failed to save txt file");
+              setMessage("Failed to save txt file");
+            }
+          } catch (error) {
+            console.error("Failed to save txt file");
+            setMessage("Failed to save txt file");
+            console.error(error);
+          } finally {
+            setIsSaving(false);
+          }
+          setTimeout(() => {
+            setMessage("");
+          }, 3000);
+        }}
+        disabled={isSaving}
+        >{isSaving ? "Saving..." : "Save to txt file"}</button>
+        <p className="text-sm text-zinc-400">{message}</p>
+      </div>
       <div className="flex gap-4" style={{ height: "400px" }}>
 
         {/* Descriptions column */}
