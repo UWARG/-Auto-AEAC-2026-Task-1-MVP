@@ -210,6 +210,35 @@ function App() {
     setPan({ x: 0, y: 0 });
   }
 
+  const saveToTxtFile=async()=>{
+    if (captures.length === 0){
+      console.error("No captures to save");
+      return false;
+    }
+    const data = captures
+      .map((capture) => capture.desc ?? "")
+      .filter((desc) => desc.length > 0);
+    if (data.length === 0) {
+      console.error("No descriptions to save");
+      return false;
+    }
+    try {
+      const res= await fetch("/api/to_txt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok){
+        console.error("Failed to save to txt file");
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Failed to save to txt file", error);
+      return false;
+    }
+};
+
   function handlePopupContextMenu(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault();
     if (e.button===2){
@@ -395,6 +424,7 @@ function App() {
         />
 
         <CaptureHistory
+          saveToTxtFile={saveToTxtFile}
           captures={captures}
           selectedId={selectedId}
           onSelect={setSelectedId}
