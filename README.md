@@ -1,5 +1,20 @@
 # Auto AEAC 2026 Task 1 MVP
 
+```bash
+cd Auto-AEAC-2026-Task-1-MVP
+source venv/bin/activate
+python -m airside.main
+
+
+ps aux | grep python
+kill <pid>
+```
+
+```bash
+source venv/bin/activate
+./groundside/run-dev.sh
+```
+
 This repository contains a two-part Python MVP for AEAC 2026 Task 1:
 
 - `transmitter.py` runs on the drone-side computer, reads MAVLink downward range and attitude data, captures aligned RGB and depth from an OAK-D Pro, and serves both over TCP.

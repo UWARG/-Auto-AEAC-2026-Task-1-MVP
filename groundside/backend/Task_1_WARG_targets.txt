@@ -1,3 +1,16 @@
 The target is orange1, and is located 8.60 meters in front of, -0.52 meters down and -0.37 meters right from the Reference Point: ground which is on the south wall
+The target is orange1, and is located 7.86 meters in front of, -0.33 meters down and 3.43 meters right from the Reference Point: ground which is on the south wall
+The target is orange1, and is located 7.42 meters in front of, 1.68 meters down and 0.20 meters right from the Reference Point: groun which is on the south wall
 The target is orange3, and is located 1.25 m off the ground and 2.53 m to the right of the Reference Point: left.
 The target is orange2, and is located 1.47 m off the ground and 2.64 m to the left of the Reference Point: right.
+The target is orange3, and is located 1.89 m off the ground and 2.75 m to the right of the Reference Point: left.
+The target is orange 3, and is located 1.51 m off the ground and 3.19 m to the right of the Reference Point: left.
+The target is orange1, and is located 1.16 m off the ground and 1.82 m to the left of the Reference Point: right point.
+The target is orange 1, and is located 2.02 m off the ground and 6.99 m to the right of the Reference Point: ground.
+The target is a, and is located -0.07 m off the ground and 0.60 m to the right of the Reference Point: a.
+The target is a, and is located 0.32 m off the ground and 0.91 m to the right of the Reference Point: a.
+The target is a, and is located N/A off the ground and to the left of the Reference Point: a.
+The target is a, and is located -6.77 m off the ground and 15.21 m to the right of the Reference Point: a.
+The target is green, and is located N/A off the ground and to the right of the Reference Point: tree.
+The target is black, and is located 2.61 meters in front of, 0.98 meters down and 0.23 meters right from the Reference Point: pliers which is on the south wall
+The target is Red, and is located 2.59 meters in front of, 0.04 meters down and 0.53 meters right from the Reference Point: Prop which is on the south wall

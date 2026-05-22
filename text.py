@@ -30,23 +30,9 @@ DEPTH_PNG_COMPRESSION = 3
 ARDU_DEVICE_INDEX = 0
 ARDU_WIDTH = 640
 ARDU_HEIGHT = 360
-# Prefer auto exposure by default to avoid washed-out frames caused by
-# invalid manual exposure ranges on different camera drivers.
-ARDU_USE_AUTO_EXPOSURE = True
-ARDU_MANUAL_EXPOSURE = -6
-ARDU_MANUAL_GAIN: Optional[int] = None
-ARDU_BRIGHTNESS: Optional[int] = None
-# Adaptive software correction to keep the stream usable even when
-# driver-level exposure controls are ignored by the camera.
-ARDU_ENABLE_SOFTWARE_EXPOSURE_CORRECTION = True
-ARDU_TARGET_P95_LUMA = 210.0
-ARDU_TARGET_MEDIAN_LUMA = 105.0
-ARDU_SOFT_GAIN_MIN = 0.45
-ARDU_SOFT_GAIN_MAX = 1.35
-# Optional native camera FOV inputs. If set, airside logs also print
-# effective FOV after letterboxing to the target stream resolution.
-ARDU_NATIVE_HFOV_DEG: Optional[float] = None
-ARDU_NATIVE_VFOV_DEG: Optional[float] = None
+ARDU_MANUAL_EXPOSURE = -11 # ================= This one =================
+ARDU_MANUAL_GAIN = 0
+ARDU_BRIGHTNESS = 10
 
 # Flight Controller Connection Settings
 # For serial (e.g. Raspberry Pi GPIO): "/dev/ttyAMA0" or "/dev/serial0"
@@ -365,50 +351,24 @@ class OakCamera:
 
 
 class Arducam:
-    def __init__(self, height: int, width: int) -> None:
+    def __init__(self, height, width):
         self.height = height
         self.width = width
         self.lock = threading.Lock()
-        self.last_frame: Optional[np.ndarray] = None
+        self.last_frame = None
         self._stop_event = threading.Event()
-        self._software_gain = 1.0
-        self._logged_capture_geometry = False
-        self._logged_effective_fov = False
-        self.cap = self._open_camera()
+        self.cap = cv2.VideoCapture(ARDU_DEVICE_INDEX, cv2.CAP_V4L2)
+        if not self.cap.isOpened():
+            self.cap.release()
+            self.cap = cv2.VideoCapture(ARDU_DEVICE_INDEX)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+
+        time.sleep(1)
         self._configure_controls()
-        self._warmup()
+
         self.thread = threading.Thread(target=self._capture_loop, daemon=True)
         self.thread.start()
-
-    def _open_camera(self) -> cv2.VideoCapture:
-        for backend in (cv2.CAP_V4L2, cv2.CAP_ANY):
-            cap = cv2.VideoCapture(ARDU_DEVICE_INDEX, backend)
-            if not cap.isOpened():
-                cap.release()
-                continue
-
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-            fourcc_fn = cast(Any, getattr(cv2, "VideoWriter_fourcc", None))
-            if callable(fourcc_fn):
-                fourcc_raw = fourcc_fn(*"MJPG")
-                if isinstance(fourcc_raw, (int, float)):
-                    cap.set(cv2.CAP_PROP_FOURCC, float(fourcc_raw))
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-            backend_name = "unknown"
-            try:
-                backend_name = cap.getBackendName()
-            except Exception:
-                pass
-            logging.info(
-                "Arducam opened device=%s backend=%s",
-                ARDU_DEVICE_INDEX,
-                backend_name,
-            )
-            return cap
-
-        raise RuntimeError(f"Failed to open Arducam at index {ARDU_DEVICE_INDEX}")
 
     def _set_control(self, prop: int, value: float, label: str) -> None:
         ok = self.cap.set(prop, value)
@@ -422,155 +382,51 @@ class Arducam:
         )
 
     def _configure_controls(self) -> None:
-        # Try common OpenCV auto-exposure values used by different backends.
-        auto_values = (0.75, 3.0) if ARDU_USE_AUTO_EXPOSURE else (1.0, 0.25, 0.0)
-        for auto_exposure_value in auto_values:
-            self._set_control(
-                cv2.CAP_PROP_AUTO_EXPOSURE,
+        try:
+            logging.info("Arducam backend: %s", self.cap.getBackendName())
+        except Exception:
+            logging.debug("Could not query Arducam backend name", exc_info=True)
+
+        for auto_exposure_value in (0.25, 1.0):
+            ok = self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, auto_exposure_value)
+            actual = self.cap.get(cv2.CAP_PROP_AUTO_EXPOSURE)
+            logging.info(
+                "Arducam auto exposure request=%s applied=%s actual=%s",
                 auto_exposure_value,
-                "auto_exposure",
+                ok,
+                actual,
             )
+            if math.isfinite(actual) and abs(actual - auto_exposure_value) < 0.1:
+                break
 
-        if not ARDU_USE_AUTO_EXPOSURE:
-            self._set_control(cv2.CAP_PROP_EXPOSURE, ARDU_MANUAL_EXPOSURE, "exposure")
-
-        if ARDU_MANUAL_GAIN is not None:
-            self._set_control(cv2.CAP_PROP_GAIN, ARDU_MANUAL_GAIN, "gain")
-
-        if ARDU_BRIGHTNESS is not None:
-            self._set_control(cv2.CAP_PROP_BRIGHTNESS, ARDU_BRIGHTNESS, "brightness")
-
-    def _warmup(self) -> None:
-        # Let auto exposure settle before serving frames.
-        for _ in range(25):
-            self.cap.read()
-            time.sleep(0.02)
-
-    def _apply_software_exposure_correction(self, frame: np.ndarray) -> np.ndarray:
-        if not ARDU_ENABLE_SOFTWARE_EXPOSURE_CORRECTION:
-            return frame
-
-        small = cv2.resize(frame, (160, 90), interpolation=cv2.INTER_AREA)
-        gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-
-        p95 = float(np.percentile(gray, 95))
-        p50 = float(np.percentile(gray, 50))
-        highlight_ratio = float(np.mean(gray >= 250))
-
-        target_gain = 1.0
-        if p95 > ARDU_TARGET_P95_LUMA or highlight_ratio > 0.05:
-            target_gain = ARDU_TARGET_P95_LUMA / max(p95, 1.0)
-        elif p50 < ARDU_TARGET_MEDIAN_LUMA:
-            target_gain = ARDU_TARGET_MEDIAN_LUMA / max(p50, 1.0)
-
-        target_gain = float(np.clip(target_gain, ARDU_SOFT_GAIN_MIN, ARDU_SOFT_GAIN_MAX))
-
-        # Smooth changes to avoid visible flicker.
-        self._software_gain = (0.88 * self._software_gain) + (0.12 * target_gain)
-        corrected = cv2.convertScaleAbs(frame, alpha=self._software_gain, beta=0.0)
-        return corrected
-
-    def _normalize_geometry(self, frame: np.ndarray) -> np.ndarray:
-        h, w = frame.shape[:2]
-        if h <= 0 or w <= 0:
-            return frame
-
-        scale = min(float(self.width) / float(w), float(self.height) / float(h))
-        fit_w = max(1, int(round(w * scale)))
-        fit_h = max(1, int(round(h * scale)))
-        interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LINEAR
-        resized = cv2.resize(frame, (fit_w, fit_h), interpolation=interpolation)
-
-        # Preserve aspect ratio and pad remaining area (letterbox/pillarbox).
-        canvas = np.zeros((self.height, self.width, 3), dtype=frame.dtype)
-        x0 = (self.width - fit_w) // 2
-        y0 = (self.height - fit_h) // 2
-        canvas[y0 : y0 + fit_h, x0 : x0 + fit_w] = resized
-        return canvas
-
-    def _log_effective_fov(self, raw_w: int, raw_h: int) -> None:
-        if self._logged_effective_fov:
-            return
-
-        scale = min(float(self.width) / float(raw_w), float(self.height) / float(raw_h))
-        fit_w = max(1, int(round(raw_w * scale)))
-        fit_h = max(1, int(round(raw_h * scale)))
-
-        width_fraction = fit_w / float(self.width)
-        height_fraction = fit_h / float(self.height)
-
-        logging.info(
-            "Arducam effective FOV scale factors: hfov_x=%.6f vfov_y=%.6f (fit=%sx%s target=%sx%s)",
-            width_fraction,
-            height_fraction,
-            fit_w,
-            fit_h,
-            self.width,
-            self.height,
+        self._set_control(
+            cv2.CAP_PROP_EXPOSURE,
+            ARDU_MANUAL_EXPOSURE,
+            "exposure",
         )
-        logging.info(
-            "FOV conversion formula: eff = 2*atan(scale*tan(native/2)); use scales above for app calibration"
+        self._set_control(cv2.CAP_PROP_GAIN, ARDU_MANUAL_GAIN, "gain")
+        self._set_control(
+            cv2.CAP_PROP_BRIGHTNESS,
+            ARDU_BRIGHTNESS,
+            "brightness",
         )
 
-        if ARDU_NATIVE_HFOV_DEG is not None:
-            eff_h = math.degrees(
-                2.0
-                * math.atan(
-                    width_fraction * math.tan(math.radians(ARDU_NATIVE_HFOV_DEG) / 2.0)
-                )
-            )
-            logging.info(
-                "Arducam effective HFOV: native=%.3f deg -> effective=%.3f deg",
-                ARDU_NATIVE_HFOV_DEG,
-                eff_h,
-            )
-
-        if ARDU_NATIVE_VFOV_DEG is not None:
-            eff_v = math.degrees(
-                2.0
-                * math.atan(
-                    height_fraction * math.tan(math.radians(ARDU_NATIVE_VFOV_DEG) / 2.0)
-                )
-            )
-            logging.info(
-                "Arducam effective VFOV: native=%.3f deg -> effective=%.3f deg",
-                ARDU_NATIVE_VFOV_DEG,
-                eff_v,
-            )
-
-        self._logged_effective_fov = True
-
-    def _capture_loop(self) -> None:
+    def _capture_loop(self):
         while not self._stop_event.is_set():
             ret, frame = self.cap.read()
             if not ret:
                 time.sleep(0.01)
-                continue
+            else:
+                with self.lock:
+                    self.last_frame = frame
 
-            if not self._logged_capture_geometry:
-                in_h, in_w = frame.shape[:2]
-                logging.info(
-                    "Arducam raw frame geometry: %sx%s (target %sx%s)",
-                    in_w,
-                    in_h,
-                    self.width,
-                    self.height,
-                )
-                self._log_effective_fov(in_w, in_h)
-                self._logged_capture_geometry = True
-
-            frame = self._normalize_geometry(frame)
-            frame = self._apply_software_exposure_correction(frame)
-            with self.lock:
-                self.last_frame = frame
-
-    def release(self) -> None:
+    def release(self):
         self._stop_event.set()
         if self.thread.is_alive():
             self.thread.join()
         self.cap.release()
 
-    def capture_payloads(self) -> bytes:
+    def capture_payloads(self):
         with self.lock:
             if self.last_frame is None:
                 return b""
@@ -646,27 +502,31 @@ def handle_client(
 
 
 def run_server():
-    telemetry_state = TelemetryState()
-    mav_thread = MavlinkReader(FC_ADDR, telemetry_state)
-    mav_thread.start()
-    camera = OakCamera(FRAME_WIDTH, FRAME_HEIGHT)
     camera_down = Arducam(ARDU_HEIGHT, ARDU_WIDTH)
-    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_sock.bind((HOST, PORT))
-    server_sock.listen(5)
-    logging.info(f"Server alive on port {PORT}")
 
     try:
         while True:
-            conn, addr = server_sock.accept()
-            handle_client(conn, addr, camera, camera_down, telemetry_state)
+            # handle_client(conn, addr, camera, camera_down, telemetry_state)
+            jpeg_bytes_ardu = camera_down.capture_payloads()
+
+            # decode jpeg to opencv image and show it
+            if jpeg_bytes_ardu:
+                nparr = np.frombuffer(jpeg_bytes_ardu, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img is not None:
+                    cv2.imshow("Arducam", img)
+                    key = cv2.waitKey(0) & 0xFF
+                    if key == ord("q"):
+                        break
+                    cv2.destroyWindow("Arducam")
+            else:
+                print("Failed to capture frame")
+                time.sleep(0.02)
     except KeyboardInterrupt:
         pass
     finally:
-        camera.release()
-        mav_thread.stop()
-        server_sock.close()
+        camera_down.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

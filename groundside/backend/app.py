@@ -54,7 +54,7 @@ CAMERA_HFOV_RAD = math.radians(80)
 CAMERA_VFOV_RAD = math.radians(55)
 
 ARDU_CAMERA_VFOV_RAD=math.radians(46.5)
-ARDU_CAMERA_HFOV_RAD=math.radians(70)
+ARDU_CAMERA_HFOV_RAD=math.radians(55.44) # 70
 
 
 # Fisheye correction (only near the edges). Correction = 1 + this * (angle / edge_angle)^2.

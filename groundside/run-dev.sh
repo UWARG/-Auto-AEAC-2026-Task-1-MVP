@@ -11,6 +11,19 @@ GREEN=$'\033[1;32m'
 YELLOW=$'\033[1;33m'
 RESET=$'\033[0m'
 
+kill_tree() {
+  local pid="$1"
+  local child
+
+  if command -v pgrep >/dev/null 2>&1; then
+    while IFS= read -r child; do
+      [[ -n "$child" ]] && kill_tree "$child"
+    done < <(pgrep -P "$pid" 2>/dev/null || true)
+  fi
+
+  kill -TERM "$pid" 2>/dev/null || true
+}
+
 pick_python() {
   if [[ -n "${PYTHON:-}" ]]; then
     printf '%s\n' "$PYTHON"
@@ -69,21 +82,31 @@ printf '%s[info]%s press Ctrl+C to stop both services\n' "$YELLOW" "$RESET"
 
 cleanup() {
   local exit_code=$?
-  trap - INT TERM EXIT
+  trap - HUP INT TERM EXIT
 
   if [[ -n "${BACKEND_PID:-}" ]]; then
-    kill "$BACKEND_PID" 2>/dev/null || true
+    kill_tree "$BACKEND_PID"
   fi
 
   if [[ -n "${FRONTEND_PID:-}" ]]; then
-    kill "$FRONTEND_PID" 2>/dev/null || true
+    kill_tree "$FRONTEND_PID"
+  fi
+
+  sleep 0.2
+
+  if [[ -n "${BACKEND_PID:-}" ]]; then
+    kill -KILL "$BACKEND_PID" 2>/dev/null || true
+  fi
+
+  if [[ -n "${FRONTEND_PID:-}" ]]; then
+    kill -KILL "$FRONTEND_PID" 2>/dev/null || true
   fi
 
   wait 2>/dev/null || true
   exit "$exit_code"
 }
 
-trap cleanup INT TERM EXIT
+trap cleanup HUP INT TERM EXIT
 
 (
   cd "$BACKEND_DIR"
@@ -97,6 +120,19 @@ BACKEND_PID=$!
 ) &
 FRONTEND_PID=$!
 
-while kill -0 "$BACKEND_PID" 2>/dev/null && kill -0 "$FRONTEND_PID" 2>/dev/null; do
+backend_reported_dead=0
+frontend_reported_dead=0
+
+while true; do
+  if [[ "$backend_reported_dead" -eq 0 ]] && ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+    backend_reported_dead=1
+    printf '%s[warn]%s backend process exited; script will keep running until Ctrl+C.\n' "$YELLOW" "$RESET"
+  fi
+
+  if [[ "$frontend_reported_dead" -eq 0 ]] && ! kill -0 "$FRONTEND_PID" 2>/dev/null; then
+    frontend_reported_dead=1
+    printf '%s[warn]%s frontend process exited; script will keep running until Ctrl+C.\n' "$YELLOW" "$RESET"
+  fi
+
   sleep 1
 done
